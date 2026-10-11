@@ -6972,6 +6972,17 @@ html.a2-offline .historyUploadBtn {
   color: #ffb4b4;
 }
 
+/* Why a key is framed red, under its label. */
+.settingsPanel .keybindHint {
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 1.35;
+  color: #ff9a9a;
+}
+.settingsPanel .keybindHint[hidden] {
+  display: none;
+}
+
 /* Keybinds turned off: the keys stay editable, dimmed. */
 .settingsSection.hotkeysOff .settingsRowKeybind {
   opacity: 0.5;

@@ -3892,8 +3892,9 @@ class DpsApp {
     this.refreshKeybindLabels();
 
     // A key another program holds, or one two of the meter's actions share,
-    // is framed in red with the reason on hover. The backend says which keys
-    // it could not register ("taken"); sharing is read off the labels.
+    // is framed in red, with the reason in a line under its label (a hover
+    // alone goes unread). The backend says which keys it could not register
+    // ("taken"); sharing is read off the labels.
     let lastHotkeyStatus = {};
     this.applyHotkeyStatus = (status) => {
       lastHotkeyStatus = status && typeof status === "object" ? status : {};
@@ -3904,15 +3905,28 @@ class DpsApp {
         const shared = rows.some(([other]) => other !== btn && labelOf(other) === labelOf(btn));
         const taken = lastHotkeyStatus[key] === "taken";
         btn.classList?.toggle?.("isTaken", shared || taken);
+        let reason = "";
         if (shared) {
-          btn.title = this.i18n?.t?.("settings.keybindShared", "Another action uses these keys. Pick different keys.")
+          reason = this.i18n?.t?.("settings.keybindShared", "Another action uses these keys. Pick different keys.")
             ?? "Another action uses these keys. Pick different keys.";
         } else if (taken) {
-          btn.title = this.i18n?.t?.("settings.keybindTaken", "Another program already uses these keys. Pick different keys.")
+          reason = this.i18n?.t?.("settings.keybindTaken", "Another program already uses these keys. Pick different keys.")
             ?? "Another program already uses these keys. Pick different keys.";
-        } else {
-          btn.removeAttribute?.("title");
         }
+        const info = btn.closest?.(".settingsRowKeybind")?.querySelector?.(".settingsInfo");
+        let hint = info?.querySelector?.(".keybindHint");
+        if (reason && info && !hint && document.createElement) {
+          hint = document.createElement("div");
+          hint.className = "keybindHint";
+          hint.setAttribute?.("role", "status");
+          info.appendChild?.(hint);
+        }
+        if (hint) {
+          hint.textContent = reason;
+          hint.hidden = !reason;
+        }
+        if (reason) btn.title = reason;
+        else btn.removeAttribute?.("title");
       }
     };
     const refreshLabels = this.refreshKeybindLabels;
