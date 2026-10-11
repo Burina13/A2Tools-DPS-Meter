@@ -385,8 +385,10 @@
       "trainingMode": "En mode entraînement, quels mannequins la fenêtre Détails affiche : tous ensemble, ou seulement celui que tu frappes le plus.",
       "allTargetsWindow": "En mode Toutes les cibles, le compteur additionne chaque cible touchée dans ce délai avant le dernier coup.",
       "debugLogging": "Écrit un journal de diagnostic que le développeur peut utiliser pour trouver les problèmes.",
-      "saveRawPackets": "Enregistre le trafic brut du jeu pour les rapports de bug. Le journal de débogage s'active avec."
-    }
+      "saveRawPackets": "Enregistre le trafic brut du jeu pour les rapports de bug. Le journal de débogage s'active avec.",
+      "globalHotkeys": "Les touches ci-dessous fonctionnent quand le jeu est au premier plan. Désactivé, elles sont libérées pour d'autres programmes. Sous Linux, le bureau les enregistre, et le compteur le laisse brièvement vérifier son processus pendant ce temps."
+    },
+    "globalHotkeys": "Utiliser les raccourcis"
   },
   "support": {
     "button": "Me soutenir",

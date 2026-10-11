@@ -34,18 +34,29 @@ const RELOAD: &str = "reset";
 const TOGGLE: &str = "toggle";
 const LOCK: &str = "lock";
 
-pub struct HotkeyManager {
+/// Off until the user turns them on (Settings → Keybinds): registering
+/// makes the process briefly inspectable (`Inspectable`), which a meter
+/// holding cap_net_raw should only do when asked to.
+pub const DEFAULT_ON: bool = false;
+
+/// One listener: its stop flag and its portal connection, once bound
+/// (closing it ends the session and the listener's signal stream).
+#[derive(Clone)]
+struct Listener {
     running: Arc<AtomicBool>,
-    /// The portal connection while shortcuts are bound; closing it ends the
-    /// session and the listener.
     connection: Arc<Mutex<Option<Connection>>>,
+}
+
+pub struct HotkeyManager {
+    /// The current listener. Each start makes a new one, so a listener still
+    /// winding down cannot clear the next one's flag or connection.
+    current: Mutex<Option<Listener>>,
 }
 
 impl HotkeyManager {
     pub fn new() -> Self {
         Self {
-            running: Arc::new(AtomicBool::new(false)),
-            connection: Arc::new(Mutex::new(None)),
+            current: Mutex::new(None),
         }
     }
 
@@ -65,9 +76,16 @@ impl HotkeyManager {
         on_toggle: impl Fn() + Send + 'static,
         on_lock: impl Fn() + Send + 'static,
     ) {
-        if self.running.swap(true, Ordering::SeqCst) {
+        let mut current = self.current.lock().unwrap_or_else(|p| p.into_inner());
+        if current.as_ref().is_some_and(|l| l.running.load(Ordering::SeqCst)) {
             return;
         }
+        let listener = Listener {
+            running: Arc::new(AtomicBool::new(true)),
+            connection: Arc::new(Mutex::new(None)),
+        };
+        *current = Some(listener.clone());
+        drop(current);
         let wanted: Vec<(&'static str, &'static str, Option<String>)> = [
             (RELOAD, "Reset the meter", reload_mods, reload_vk),
             (TOGGLE, "Show or hide the meter", toggle_mods, toggle_vk),
@@ -78,8 +96,7 @@ impl HotkeyManager {
         .map(|(id, description, mods, vk)| (id, description, trigger(mods, vk)))
         .collect();
 
-        let running = self.running.clone();
-        let slot = self.connection.clone();
+        let Listener { running, connection: slot } = listener;
         std::thread::spawn(move || {
             let result = listen(&wanted, &slot, |id| match id {
                 RELOAD => on_reload(),
@@ -95,14 +112,18 @@ impl HotkeyManager {
         });
     }
 
+    /// Stop listening. Closing the connection ends the portal session, so the
+    /// desktop drops the shortcuts. Does not wait: a listener can be waiting
+    /// on a desktop's confirmation dialog.
     pub fn stop(&self) {
-        // Closing the connection ends the portal session, and with it the
-        // listener's signal stream.
-        let connection = self.connection.lock().unwrap_or_else(|p| p.into_inner()).take();
-        if let Some(connection) = connection {
-            let _ = connection.close();
+        let listener = self.current.lock().unwrap_or_else(|p| p.into_inner()).take();
+        if let Some(listener) = listener {
+            listener.running.store(false, Ordering::SeqCst);
+            let connection = listener.connection.lock().unwrap_or_else(|p| p.into_inner()).take();
+            if let Some(connection) = connection {
+                let _ = connection.close();
+            }
         }
-        self.running.store(false, Ordering::SeqCst);
     }
 }
 

@@ -79,6 +79,7 @@ class DpsApp {
       theme: "dpsMeter.theme",
       slimMode: "dpsMeter.slimMode",
       autoHideMeter: "dpsMeter.autoHideMeter",
+      globalHotkeys: "dpsMeter.globalHotkeys",
       bossLogs: "dpsMeter.bossLogsEnabled",
       saveRawPackets: "dpsMeter.saveRawPackets",
       autoUpload: "dpsMeter.autoUpload",
@@ -239,6 +240,13 @@ class DpsApp {
     if (saved === "false") return false;
     if (saved === "true") return true;
     return !this.safeGetSetting("dpsMeter.manualDevice");
+  }
+
+  // Whether keybinds are on: the saved choice, else this OS's default.
+  globalHotkeysOn() {
+    const stored = this.safeGetSetting(this.storageKeys.globalHotkeys);
+    if (stored === "true" || stored === "false") return stored === "true";
+    return !document.documentElement?.classList?.contains?.("linux");
   }
 
   safeSetSetting(key, value) {
@@ -2630,6 +2638,22 @@ class DpsApp {
         this.renderCurrentRows();
       });
     }
+    // Keybinds on or off. Unset, on for Windows and off for Linux, where the
+    // desktop registers them (the backend's platform::hotkeys::DEFAULT_ON).
+    // The backend starts or stops them as the setting changes.
+    this.globalHotkeysCheckbox = document.querySelector(".globalHotkeysCheckbox");
+    if (this.globalHotkeysCheckbox) {
+      const apply = (on) => {
+        this.globalHotkeysCheckbox.checked = on;
+        this.globalHotkeysCheckbox.closest(".settingsSection")?.classList.toggle("hotkeysOff", !on);
+      };
+      apply(this.globalHotkeysOn());
+      this.globalHotkeysCheckbox.addEventListener("change", (event) => {
+        const isChecked = !!event.target?.checked;
+        apply(isChecked);
+        this.safeSetSetting(this.storageKeys.globalHotkeys, String(isChecked));
+      });
+    }
     this.autoHideMeterCheckbox = document.querySelector(".autoHideMeterCheckbox");
     if (this.autoHideMeterCheckbox) {
       const storedAutoHide = this.safeGetSetting(this.storageKeys.autoHideMeter) !== "false";
@@ -4211,6 +4235,7 @@ class DpsApp {
     for (const [box, name, defaultOn] of [
       [this.bossLogsCheckbox, "bossLogs", false],
       [this.autoHideMeterCheckbox, "autoHideMeter", true],
+      [this.globalHotkeysCheckbox, "globalHotkeys", !document.documentElement?.classList?.contains?.("linux")],
       [this.saveRawPacketsCheckbox, "saveRawPackets", false],
       [document.querySelector(".discordActivityCheckbox"), "discordActivity", false],
     ]) {

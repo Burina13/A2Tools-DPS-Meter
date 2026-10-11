@@ -385,8 +385,10 @@
       "trainingMode": "Im Trainingsmodus: welche Puppen das Detailfenster zeigt – alle zusammen oder nur die, die du am stärksten triffst.",
       "allTargetsWindow": "Im Modus „Alle Ziele“ zählt das Meter alle Ziele, die innerhalb dieser Zeit vor dem letzten Treffer getroffen wurden.",
       "debugLogging": "Schreibt ein Diagnoseprotokoll, mit dem der Entwickler Probleme finden kann.",
-      "saveRawPackets": "Zeichnet rohen Spielverkehr für Fehlerberichte auf. Das Debug-Protokoll wird mit eingeschaltet."
-    }
+      "saveRawPackets": "Zeichnet rohen Spielverkehr für Fehlerberichte auf. Das Debug-Protokoll wird mit eingeschaltet.",
+      "globalHotkeys": "Die Tasten unten funktionieren, während das Spiel im Vordergrund ist. Aus: Sie werden für andere Programme freigegeben. Unter Linux registriert der Desktop sie, und das Meter lässt ihn dabei kurz seinen Prozess prüfen."
+    },
+    "globalHotkeys": "Tastenkürzel verwenden"
   },
   "support": {
     "button": "Unterstütze mich",

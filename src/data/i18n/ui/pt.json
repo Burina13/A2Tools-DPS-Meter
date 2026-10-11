@@ -385,8 +385,10 @@
       "trainingMode": "No modo treino, quais bonecos a janela de detalhes mostra: todos juntos ou só o que você mais acerta.",
       "allTargetsWindow": "No modo Todos os alvos, o medidor soma cada alvo atingido dentro deste tempo antes do último golpe.",
       "debugLogging": "Grava um registro de diagnóstico que o desenvolvedor pode usar para encontrar problemas.",
-      "saveRawPackets": "Grava o tráfego bruto do jogo para relatórios de erro. O registro de depuração liga junto."
-    }
+      "saveRawPackets": "Grava o tráfego bruto do jogo para relatórios de erro. O registro de depuração liga junto.",
+      "globalHotkeys": "As teclas abaixo funcionam com o jogo em primeiro plano. Desligado, ficam livres para outros programas. No Linux, o ambiente de trabalho as registra, e o medidor permite que ele verifique o processo por um momento enquanto isso."
+    },
+    "globalHotkeys": "Usar atalhos de teclado"
   },
   "support": {
     "button": "Me apoie",

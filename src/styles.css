@@ -6913,6 +6913,11 @@ html.a2-offline .historyUploadBtn {
   }
 }
 
+/* Keybinds turned off: the keys stay editable, dimmed. */
+.settingsSection.hotkeysOff .settingsRowKeybind {
+  opacity: 0.5;
+}
+
 /* ---------- scrollbars ----------
    One style for every scrolling area: a visible groove with a solid light
    thumb that turns blue under the pointer, so it reads as something to drag;

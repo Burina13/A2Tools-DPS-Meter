@@ -573,6 +573,99 @@ fn apply_all_targets_window(state: &AppState, value: &str) {
     }
 }
 
+/// Whether global hotkeys are on (Settings → Keybinds). Unset, each OS's
+/// default: on for Windows, off for Linux, where registering makes the meter
+/// briefly inspectable (`platform::hotkeys::DEFAULT_ON`).
+const GLOBAL_HOTKEYS_KEY: &str = "dpsMeter.globalHotkeys";
+
+/// The hotkey listener, kept so the Linux opt-in can start and stop it.
+struct Hotkeys(platform::hotkeys::HotkeyManager);
+
+/// Start or stop the hotkeys to match the settings.
+fn apply_global_hotkeys(app: &tauri::AppHandle) {
+    let Some(state) = app.try_state::<AppState>() else { return };
+    let wanted = match state.settings.get(GLOBAL_HOTKEYS_KEY).as_deref() {
+        Some("true") => true,
+        Some("false") => false,
+        _ => platform::hotkeys::DEFAULT_ON,
+    };
+    if wanted {
+        start_hotkeys(app, &state.settings);
+    } else if let Some(hotkeys) = app.try_state::<Hotkeys>() {
+        hotkeys.0.stop();
+    }
+}
+
+/// Register the hotkeys from saved settings (or defaults).
+fn start_hotkeys(app: &tauri::AppHandle, settings: &Settings) {
+    let hotkey_handle = app.clone();
+    let Some(hotkeys) = app.try_state::<Hotkeys>() else { return };
+
+    let reload_label = settings
+        .get("dpsMeter.hotkey").unwrap_or_default();
+    let toggle_label = settings
+        .get("dpsMeter.toggleWindowHotkey").unwrap_or_default();
+    let lock_label = settings
+        .get("dpsMeter.lockHotkey").unwrap_or_default();
+
+    let (reload_mods, reload_vk) = platform::hotkeys::parse_hotkey_label(&reload_label)
+        .unwrap_or((0x0002 | 0x0001, 0x52)); // Default: Ctrl+Alt+R
+    let (toggle_mods, toggle_vk) = platform::hotkeys::parse_hotkey_label(&toggle_label)
+        .unwrap_or((0x0002 | 0x0001, 0x26)); // Default: Ctrl+Alt+Up
+    let (lock_mods, lock_vk) = platform::hotkeys::parse_hotkey_label(&lock_label)
+        .unwrap_or((0x0002 | 0x0001, 0x4C)); // Default: Ctrl+Alt+L
+
+    hotkeys.0.start(
+        reload_mods, reload_vk,
+        toggle_mods, toggle_vk,
+        lock_mods, lock_vk,
+        {
+            let h = hotkey_handle.clone();
+            move || {
+                tracing::info!("Hotkey: reload triggered");
+                save_fights_before_reset(&h);
+                if let Some(state) = h.try_state::<AppState>() {
+                    state.dps_calculator.lock().restart_target_selection(true);
+                    state.data_storage.forget_guessed_nicknames();
+                }
+                // Notify frontend to clear UI
+                let _ = h.emit("combat-reset", ());
+                let _ = h.emit("dps-update", &entity::dps_data::DpsData::new());
+            }
+        },
+        {
+            let h = hotkey_handle.clone();
+            move || {
+                // Toggle window visibility
+                if let Some(window) = h.get_webview_window("main") {
+                    if window.is_visible().unwrap_or(false) {
+                        let _ = window.hide();
+                    } else {
+                        let _ = window.show();
+                        let _ = window.set_always_on_top(true);
+                        let _ = window.set_focus();
+                    }
+                }
+            }
+        },
+        {
+            let h = hotkey_handle;
+            move || {
+                // Toggle the click-through lock, and tell the page so
+                // its button and saved setting follow.
+                let locked = h
+                    .try_state::<AppState>()
+                    .is_some_and(|s| s.overlay_lock.locked.load(std::sync::atomic::Ordering::SeqCst));
+                if platform::window::cursor_position().is_none() && !locked {
+                    return; // the lock is not offered here
+                }
+                apply_overlay_lock(&h, !locked);
+                let _ = h.emit("overlay-lock-changed", !locked);
+            }
+        },
+    );
+}
+
 #[tauri::command]
 fn update_settings(
     app: tauri::AppHandle,
@@ -583,6 +676,9 @@ fn update_settings(
     if state.settings.set(&key, &value) {
         if key == ALL_TARGETS_WINDOW_KEY {
             apply_all_targets_window(&state, &value);
+        }
+        if key == GLOBAL_HOTKEYS_KEY {
+            apply_global_hotkeys(&app);
         }
         let _ = app.emit("setting-changed", serde_json::json!({ "key": key, "value": value }));
         #[cfg(feature = "online")]
@@ -2682,73 +2778,9 @@ pub fn run() {
                 dispatcher.run(rx).await;
             });
 
-            // Register global hotkeys from saved settings (or defaults)
-            let hotkey_handle = app.handle().clone();
-            let hotkey_manager = platform::hotkeys::HotkeyManager::new();
-
-            let reload_label = app.state::<AppState>().settings
-                .get("dpsMeter.hotkey").unwrap_or_default();
-            let toggle_label = app.state::<AppState>().settings
-                .get("dpsMeter.toggleWindowHotkey").unwrap_or_default();
-            let lock_label = app.state::<AppState>().settings
-                .get("dpsMeter.lockHotkey").unwrap_or_default();
-
-            let (reload_mods, reload_vk) = platform::hotkeys::parse_hotkey_label(&reload_label)
-                .unwrap_or((0x0002 | 0x0001, 0x52)); // Default: Ctrl+Alt+R
-            let (toggle_mods, toggle_vk) = platform::hotkeys::parse_hotkey_label(&toggle_label)
-                .unwrap_or((0x0002 | 0x0001, 0x26)); // Default: Ctrl+Alt+Up
-            let (lock_mods, lock_vk) = platform::hotkeys::parse_hotkey_label(&lock_label)
-                .unwrap_or((0x0002 | 0x0001, 0x4C)); // Default: Ctrl+Alt+L
-
-            hotkey_manager.start(
-                reload_mods, reload_vk,
-                toggle_mods, toggle_vk,
-                lock_mods, lock_vk,
-                {
-                    let h = hotkey_handle.clone();
-                    move || {
-                        tracing::info!("Hotkey: reload triggered");
-                        save_fights_before_reset(&h);
-                        if let Some(state) = h.try_state::<AppState>() {
-                            state.dps_calculator.lock().restart_target_selection(true);
-                            state.data_storage.forget_guessed_nicknames();
-                        }
-                        // Notify frontend to clear UI
-                        let _ = h.emit("combat-reset", ());
-                        let _ = h.emit("dps-update", &entity::dps_data::DpsData::new());
-                    }
-                },
-                {
-                    let h = hotkey_handle.clone();
-                    move || {
-                        // Toggle window visibility
-                        if let Some(window) = h.get_webview_window("main") {
-                            if window.is_visible().unwrap_or(false) {
-                                let _ = window.hide();
-                            } else {
-                                let _ = window.show();
-                                let _ = window.set_always_on_top(true);
-                                let _ = window.set_focus();
-                            }
-                        }
-                    }
-                },
-                {
-                    let h = hotkey_handle;
-                    move || {
-                        // Toggle the click-through lock, and tell the page so
-                        // its button and saved setting follow.
-                        let locked = h
-                            .try_state::<AppState>()
-                            .is_some_and(|s| s.overlay_lock.locked.load(std::sync::atomic::Ordering::SeqCst));
-                        if platform::window::cursor_position().is_none() && !locked {
-                            return; // the lock is not offered here
-                        }
-                        apply_overlay_lock(&h, !locked);
-                        let _ = h.emit("overlay-lock-changed", !locked);
-                    }
-                },
-            );
+            // Global hotkeys, unless turned off (or, on Linux, not yet on).
+            app.manage(Hotkeys(platform::hotkeys::HotkeyManager::new()));
+            apply_global_hotkeys(app.handle());
 
             // Periodic DPS update emission (every 500ms)
             let handle = app.handle().clone();

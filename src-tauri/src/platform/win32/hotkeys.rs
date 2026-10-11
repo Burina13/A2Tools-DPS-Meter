@@ -3,10 +3,15 @@ use std::sync::Arc;
 
 use tracing::{info, warn};
 
+/// On unless the user turns them off (Settings → Keybinds).
+pub const DEFAULT_ON: bool = true;
+
 /// Global hotkey manager using Win32 RegisterHotKey.
 /// Runs its own message loop thread to receive WM_HOTKEY messages.
 pub struct HotkeyManager {
-    running: Arc<AtomicBool>,
+    /// The listener thread and its own stop flag, while one runs. Each start
+    /// makes a new pair, so a stop and a start cannot share a flag.
+    listener: std::sync::Mutex<Option<(Arc<AtomicBool>, std::thread::JoinHandle<()>)>>,
 }
 
 impl HotkeyManager {
@@ -16,7 +21,7 @@ impl HotkeyManager {
 
     pub fn new() -> Self {
         Self {
-            running: Arc::new(AtomicBool::new(false)),
+            listener: std::sync::Mutex::new(None),
         }
     }
 
@@ -37,13 +42,15 @@ impl HotkeyManager {
         on_toggle: impl Fn() + Send + 'static,
         on_lock: impl Fn() + Send + 'static,
     ) {
-        if self.running.swap(true, Ordering::SeqCst) {
+        let mut listener = self.listener.lock().unwrap_or_else(|p| p.into_inner());
+        if listener.as_ref().is_some_and(|(running, _)| running.load(Ordering::SeqCst)) {
             return;
         }
 
-        let running = self.running.clone();
+        let running = Arc::new(AtomicBool::new(true));
+        let flag = running.clone();
 
-        std::thread::spawn(move || {
+        let thread = std::thread::spawn(move || {
             use windows::Win32::UI::Input::KeyboardAndMouse::*;
             use windows::Win32::UI::WindowsAndMessaging::*;
 
@@ -111,11 +118,20 @@ impl HotkeyManager {
                 if reload_ok { let _ = UnregisterHotKey(None, Self::HOTKEY_RELOAD); }
                 if toggle_ok { let _ = UnregisterHotKey(None, Self::HOTKEY_TOGGLE); }
                 if lock_ok { let _ = UnregisterHotKey(None, Self::HOTKEY_LOCK); }
+                info!("Global hotkeys unregistered");
             }
         });
+        *listener = Some((flag, thread));
     }
 
+    /// Stop listening and unregister the hotkeys, waiting for the listener
+    /// to do so (it checks every 50 ms), so a start right after can register
+    /// the same keys again.
     pub fn stop(&self) {
-        self.running.store(false, Ordering::SeqCst);
+        let listener = self.listener.lock().unwrap_or_else(|p| p.into_inner()).take();
+        if let Some((running, thread)) = listener {
+            running.store(false, Ordering::SeqCst);
+            let _ = thread.join();
+        }
     }
 }

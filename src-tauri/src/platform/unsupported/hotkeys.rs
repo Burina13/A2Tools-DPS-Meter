@@ -1,3 +1,6 @@
+/// There are no hotkeys here to turn on.
+pub const DEFAULT_ON: bool = false;
+
 /// No global hotkeys on this platform.
 pub struct HotkeyManager;
 

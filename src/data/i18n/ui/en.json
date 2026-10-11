@@ -397,8 +397,10 @@
       "trainingMode": "In Train mode, which dummies the Details window shows: all of them together, or only the one you hit hardest.",
       "allTargetsWindow": "In All Targets mode, the meter adds up every target hit within this time of the latest hit.",
       "debugLogging": "Writes a diagnostic log the developer can use to track down problems.",
-      "saveRawPackets": "Records raw game traffic for bug reports. Debug logging turns on with it."
-    }
+      "saveRawPackets": "Records raw game traffic for bug reports. Debug logging turns on with it.",
+      "globalHotkeys": "The keys below work anywhere, even while the game is in front. Off, they are released for other programs. On Linux your desktop registers them, and the meter lets it check the meter's process for a moment while it does."
+    },
+    "globalHotkeys": "Use keybinds"
   },
   "support": {
     "button": "Support Me",
