@@ -354,7 +354,19 @@ pub fn derive_fight(
     skills_json: &str,
     dot_ids_json: &str,
 ) -> Result<DerivedFight, DeriveError> {
-    derive_fight_with(slice, npcs_json, skills_json, dot_ids_json, true, false).map(|(fight, _)| fight)
+    match derive_fight_with(slice, npcs_json, skills_json, dot_ids_json, true, false) {
+        // Slices from early meters (2.0.30 to 2.0.37) have no self record and
+        // no dungeon, so `is_our_fight` (2026-10-05, #19) takes the uploader's
+        // own boss for a stranger's and nothing is derived: 56 logs a re-derive
+        // could not update (2026-10-11). A slice is an upload its owner chose
+        // to send, so when "ours only" finds nothing, every fight counts. A
+        // slice that derives as it is never comes here, so none changes.
+        Err(DeriveError::NothingDerived) => {
+            derive_fight_with(slice, npcs_json, skills_json, dot_ids_json, true, true)
+        }
+        other => other,
+    }
+    .map(|(fight, _)| fight)
 }
 
 /// `derive_fight` without `hide_unplaced_summons`: the fight as the parser
