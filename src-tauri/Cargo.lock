@@ -32,6 +32,7 @@ dependencies = [
  "webkit2gtk",
  "windows 0.59.0",
  "x11-dl",
+ "zbus",
 ]
 
 [[package]]

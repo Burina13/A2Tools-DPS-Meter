@@ -23,7 +23,6 @@ pub mod window_detector;
 pub mod window_rules;
 pub mod window_startup;
 
-#[path = "../unsupported/hotkeys.rs"]
 pub mod hotkeys;
 #[path = "../unsupported/shell.rs"]
 pub mod shell;

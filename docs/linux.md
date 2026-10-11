@@ -211,11 +211,40 @@ To remove it:
 | A2 Tools account sign-in | Works: kept in KWallet or GNOME Keyring, which may ask to create or unlock a wallet the first time |
 | Automatic updates | Works for the packages; builds from source update with `git pull` |
 | Class icons | Works (missing in the 2.0.34 package and earlier; fixed in 2.0.35) |
-| Global hotkeys | Not yet |
+| Global hotkeys | From 2.0.57, through your desktop's global shortcuts: see [Global hotkeys](#global-hotkeys) |
 | Click-through lock | From 2.0.42, when the meter runs through XWayland (`GDK_BACKEND=x11 a2tools-dps-meter`): turn on the lock button in Settings. On native Wayland an app cannot see where the pointer is outside its own window, so the button stays hidden there |
 | Discord activity | From 2.0.42: your class, level and server in your Discord status, through the Discord app on the same computer |
 | Screenshots | Works from 2.0.41, to the clipboard and a folder (`~/Pictures/A2Tools DPS Meter` by default). On Linux the meter pictures itself on a plain background, since Wayland lets no app copy the screen |
 | Auto-hide when the game loses focus | Not yet (the meter stays visible) |
+
+## Global hotkeys
+
+From 2.0.57 the meter's three hotkeys (reset, show or hide, click-through lock) work on Linux through your desktop's global shortcuts. Wayland lets no app grab keys itself, so the meter asks the desktop for them, and the desktop has the final say on which keys they use. The meter suggests the keys set under **Settings → Keybinds**.
+
+| Desktop | What happens |
+| --- | --- |
+| KDE Plasma 6 (Bazzite, Kinoite, Aurora) | On the first start, Plasma asks you to confirm the meter's shortcuts. Change them later in **System Settings → Keyboard → Shortcuts** |
+| GNOME 48 and later (Bluefin, Silverblue) | GNOME asks you to confirm the shortcuts on the first start; change them in **Settings → Keyboard → Keyboard Shortcuts** |
+| Hyprland | The meter binds its keys itself each time it starts, unless a key is already bound in your config. To bind them yourself instead, see below |
+| Other desktops | Works if the desktop's portal supports global shortcuts; otherwise there are no hotkeys |
+
+**Hyprland.** The meter's shortcuts are `com.a2tools.dps-meter:reset`, `:toggle` and `:lock`. `hyprctl globalshortcuts` lists them while the meter runs. The meter's own bindings last until Hyprland reloads its config, and come back when the meter starts again. To bind them in your config instead:
+
+```lua
+hl.bind("CTRL + ALT + R", hl.dsp.global("com.a2tools.dps-meter:reset"))
+hl.bind("CTRL + ALT + Up", hl.dsp.global("com.a2tools.dps-meter:toggle"))
+hl.bind("CTRL + ALT + L", hl.dsp.global("com.a2tools.dps-meter:lock"))
+```
+
+On an older Hyprland that uses `hyprland.conf`:
+
+```
+bind = CTRL ALT, R, global, com.a2tools.dps-meter:reset
+bind = CTRL ALT, Up, global, com.a2tools.dps-meter:toggle
+bind = CTRL ALT, L, global, com.a2tools.dps-meter:lock
+```
+
+A key the meter finds already bound is left to your binding, so give the meter's shortcuts keys of their own.
 
 ## GNOME: keep the meter above other windows
 
