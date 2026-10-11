@@ -9,8 +9,9 @@
 //!
 //! - `<fight>.a2es` — the Evidence Slice, the packets themselves. See
 //!   `capture::evidence_slice`.
-//! - `<fight>.a2es.gz` — the same thing, gzipped: byte for byte what an upload
-//!   would put on the wire. Both are written because the compressed one is what
+//! - `<fight>.a2es.gz` — the same thing, gzipped: what an upload would put on
+//!   the wire, except the name tokens, which every cut draws with its own key.
+//!   Both are written because the compressed one is what
 //!   gets sent and the uncompressed one is what is easy to check, and making
 //!   people choose between those would defeat the point. (`a2t-inspect` reads
 //!   either.)
@@ -405,10 +406,12 @@ pub fn preview(
     let compressed = gzip(&encoded)?;
 
     std::fs::create_dir_all(out_dir).map_err(|e| e.to_string())?;
-    // Both: the `.a2es` is what `a2t-inspect` reads, the `.gz` is byte for byte
-    // what an upload would put on the wire. Writing only the compressed one
-    // would make the artifact harder to check, which is the opposite of why
-    // this exists.
+    // Both: the `.a2es` is what `a2t-inspect` reads, the `.gz` is what an
+    // upload would put on the wire, cut the same way. Not byte for byte: every
+    // cut blinds names with its own random key (`slice_key`), so an upload's
+    // tokens differ from the preview's; everything else is the same. Writing
+    // only the compressed one would make the artifact harder to check, which
+    // is the opposite of why this exists.
     let slice_path = out_dir.join(format!("{}.a2es", record.id));
     let compressed_path = out_dir.join(format!("{}.a2es.gz", record.id));
     let envelope_path = out_dir.join(format!("{}.upload.json", record.id));

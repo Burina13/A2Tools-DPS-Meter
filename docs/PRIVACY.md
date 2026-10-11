@@ -173,7 +173,10 @@ catches chat and bystanders.
 
 **Names.** The slice contains no names. Each token is made with a random key
 that belongs to that one slice and is thrown away once it is cut, so a token
-cannot be worked out from a name or a roster id, or matched between slices.
+cannot be worked out from a name or a roster id, and the same name gets a
+different token in every slice. That does not make a person unlinkable across
+uploads: the party roster record in a slice still carries each member's roster
+id, a stable per-character number, beside their token.
 Separately, the upload sends the names the saved fight already holds: **yours
 in full, everyone else masked** the way
 the meter shows them (`Ta****x`: first two characters, last character, at most

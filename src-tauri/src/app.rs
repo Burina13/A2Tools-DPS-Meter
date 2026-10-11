@@ -402,8 +402,9 @@ fn export_fight_json(state: tauri::State<'_, AppState>, record: FightRecord) -> 
 
 /// Write what sharing this fight *would* upload, without uploading anything.
 ///
-/// The point is auditability: it produces the exact `.a2es` and `.upload.json`
-/// an upload would send, so a user can open them — `a2t-inspect` reads the
+/// The point is auditability: it produces the `.a2es` and `.upload.json` an
+/// upload would send, cut the same way (only the name tokens differ: each cut
+/// draws its own key), so a user can open them — `a2t-inspect` reads the
 /// former — instead of taking `docs/PRIVACY.md` on faith. There is no network
 /// call anywhere in this path.
 ///
