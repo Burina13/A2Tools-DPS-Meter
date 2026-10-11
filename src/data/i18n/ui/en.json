@@ -400,7 +400,15 @@
       "saveRawPackets": "Records raw game traffic for bug reports. Debug logging turns on with it.",
       "globalHotkeys": "The keys below work anywhere, even while the game is in front. Off, they are released for other programs. On Linux your desktop registers them, and the meter lets it check the meter's process for a moment while it does."
     },
-    "globalHotkeys": "Use keybinds"
+    "globalHotkeys": "Use keybinds",
+    "hotkeyConsent": {
+      "title": "Turn on keybinds",
+      "desktop": "On Linux, your desktop's shortcut service registers the meter's keybinds, and your desktop may ask you to confirm them.",
+      "process": "So that the service can see which app is asking, the meter lets programs running as you see its process details while the keys are registered, as most apps always do. This takes under a second, and the meter hides them again straight after.",
+      "anytime": "You can turn keybinds off at any time.",
+      "confirm": "Turn on",
+      "cancel": "Not now"
+    }
   },
   "support": {
     "button": "Support Me",

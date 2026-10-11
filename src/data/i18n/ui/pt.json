@@ -388,7 +388,15 @@
       "saveRawPackets": "Grava o tráfego bruto do jogo para relatórios de erro. O registro de depuração liga junto.",
       "globalHotkeys": "As teclas abaixo funcionam com o jogo em primeiro plano. Desligado, ficam livres para outros programas. No Linux, o ambiente de trabalho as registra, e o medidor permite que ele verifique o processo por um momento enquanto isso."
     },
-    "globalHotkeys": "Usar atalhos de teclado"
+    "globalHotkeys": "Usar atalhos de teclado",
+    "hotkeyConsent": {
+      "title": "Ativar atalhos de teclado",
+      "desktop": "No Linux, o serviço de atalhos do seu ambiente de trabalho registra os atalhos do medidor, e ele pode pedir que você os confirme.",
+      "process": "Para que o serviço saiba qual aplicativo está pedindo, enquanto as teclas são registradas o medidor permite que os programas executados com o seu usuário vejam os detalhes do processo dele, como a maioria dos aplicativos sempre faz. Isso leva menos de um segundo, e o medidor os oculta de novo logo em seguida.",
+      "anytime": "Você pode desativar os atalhos a qualquer momento.",
+      "confirm": "Ativar",
+      "cancel": "Agora não"
+    }
   },
   "support": {
     "button": "Me apoie",

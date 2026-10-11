@@ -388,7 +388,15 @@
       "saveRawPackets": "Enregistre le trafic brut du jeu pour les rapports de bug. Le journal de débogage s'active avec.",
       "globalHotkeys": "Les touches ci-dessous fonctionnent quand le jeu est au premier plan. Désactivé, elles sont libérées pour d'autres programmes. Sous Linux, le bureau les enregistre, et le compteur le laisse brièvement vérifier son processus pendant ce temps."
     },
-    "globalHotkeys": "Utiliser les raccourcis"
+    "globalHotkeys": "Utiliser les raccourcis",
+    "hotkeyConsent": {
+      "title": "Activer les raccourcis",
+      "desktop": "Sous Linux, le service de raccourcis de votre bureau enregistre les raccourcis du compteur, et votre bureau peut vous demander de les confirmer.",
+      "process": "Pour que le service sache quelle application le demande, pendant l'enregistrement des touches le compteur laisse les programmes lancés sous votre compte voir les détails de son processus, comme la plupart des applications le font toujours. Cela prend moins d'une seconde, puis le compteur les masque de nouveau.",
+      "anytime": "Vous pouvez désactiver les raccourcis à tout moment.",
+      "confirm": "Activer",
+      "cancel": "Pas maintenant"
+    }
   },
   "support": {
     "button": "Me soutenir",

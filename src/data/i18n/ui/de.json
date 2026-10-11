@@ -388,7 +388,15 @@
       "saveRawPackets": "Zeichnet rohen Spielverkehr für Fehlerberichte auf. Das Debug-Protokoll wird mit eingeschaltet.",
       "globalHotkeys": "Die Tasten unten funktionieren, während das Spiel im Vordergrund ist. Aus: Sie werden für andere Programme freigegeben. Unter Linux registriert der Desktop sie, und das Meter lässt ihn dabei kurz seinen Prozess prüfen."
     },
-    "globalHotkeys": "Tastenkürzel verwenden"
+    "globalHotkeys": "Tastenkürzel verwenden",
+    "hotkeyConsent": {
+      "title": "Tastenkürzel einschalten",
+      "desktop": "Unter Linux registriert der Kurzbefehl-Dienst deines Desktops die Tastenkürzel des Meters; dein Desktop fragt eventuell nach einer Bestätigung.",
+      "process": "Damit der Dienst sieht, welche App anfragt, lässt das Meter Programme, die unter deinem Benutzer laufen, während der Registrierung seine Prozessdetails sehen, wie es die meisten Apps immer tun. Das dauert unter einer Sekunde, danach verbirgt das Meter sie sofort wieder.",
+      "anytime": "Du kannst die Tastenkürzel jederzeit wieder ausschalten.",
+      "confirm": "Einschalten",
+      "cancel": "Nicht jetzt"
+    }
   },
   "support": {
     "button": "Unterstütze mich",

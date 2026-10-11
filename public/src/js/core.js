@@ -2648,10 +2648,41 @@ class DpsApp {
         this.globalHotkeysCheckbox.closest(".settingsSection")?.classList.toggle("hotkeysOff", !on);
       };
       apply(this.globalHotkeysOn());
+      const save = (on) => {
+        apply(on);
+        this.safeSetSetting(this.storageKeys.globalHotkeys, String(on));
+      };
+      // On Linux, turning them on first says what registering involves (the
+      // meter is briefly inspectable, platform/linux/hotkeys.rs); nothing is
+      // registered until the user goes ahead.
+      const consent = document.querySelector(".hotkeyConsent");
+      const closeConsent = () => {
+        if (!consent) return;
+        consent.hidden = true;
+        this.globalHotkeysCheckbox.focus?.();
+      };
+      consent?.querySelector(".hotkeyConsentConfirm")?.addEventListener("click", () => {
+        closeConsent();
+        save(true);
+      });
+      consent?.querySelector(".hotkeyConsentCancel")?.addEventListener("click", closeConsent);
+      consent?.addEventListener("keydown", (event) => {
+        if (event.key !== "Escape") return;
+        // Escape here closes the dialog, not the Settings window.
+        event.stopPropagation();
+        event.preventDefault();
+        closeConsent();
+      });
       this.globalHotkeysCheckbox.addEventListener("change", (event) => {
         const isChecked = !!event.target?.checked;
-        apply(isChecked);
-        this.safeSetSetting(this.storageKeys.globalHotkeys, String(isChecked));
+        const linux = document.documentElement?.classList?.contains?.("linux");
+        if (isChecked && linux && consent) {
+          apply(false);
+          consent.hidden = false;
+          consent.querySelector(".hotkeyConsentConfirm")?.focus?.();
+          return;
+        }
+        save(isChecked);
       });
     }
     this.autoHideMeterCheckbox = document.querySelector(".autoHideMeterCheckbox");
