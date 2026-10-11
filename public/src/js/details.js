@@ -2060,6 +2060,35 @@ const createDetailsUI = ({
     return Number(id) || null;
   };
 
+  // Whose buffs "All" shows, rather than a "select a player" note that left
+  // the section looking empty: you, live; in a saved fight or an uploaded log
+  // its recorder, the one actor whose name is not masked; else whoever did
+  // the most damage to the target.
+  const defaultBuffPlayer = (target) => {
+    const ids = [...detailsActors.keys()];
+    if (!ids.length) return null;
+    if (!historyRecord) {
+      const local = Number(window._dpsApp?.localPlayerId);
+      if (local && detailsActors.has(local)) return local;
+    }
+    const named = ids.filter((id) => {
+      const nick = String(detailsActors.get(id)?.nickname || "").trim();
+      return nick && !nick.includes("*") && !nick.startsWith("#");
+    });
+    if (named.length === 1) return named[0];
+    const damage = target && typeof target.actorDamage === "object" ? target.actorDamage : {};
+    let best = null;
+    let bestDamage = -1;
+    for (const id of ids) {
+      const d = Number(damage[id]) || 0;
+      if (d > bestDamage) {
+        best = id;
+        bestDamage = d;
+      }
+    }
+    return best;
+  };
+
   const showBuffs = () => {
     if (!buffTimeline) return;
     const targetId = buffTargetId();
@@ -2068,7 +2097,7 @@ const createDetailsUI = ({
       targetId,
       targetName: (target ? getTargetLabel(target) : "") || fightBossName,
       playerId: Array.isArray(selectedAttackerIds) && selectedAttackerIds.length === 1
-        ? Number(selectedAttackerIds[0]) : null,
+        ? Number(selectedAttackerIds[0]) : defaultBuffPlayer(target),
       actorIds: [...detailsActors.keys()],
     };
     if (historyRecord) {
