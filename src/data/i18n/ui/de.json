@@ -390,13 +390,15 @@
     },
     "globalHotkeys": "Tastenkürzel verwenden",
     "hotkeyConsent": {
-      "title": "Tastenkürzel einschalten",
-      "desktop": "Unter Linux registriert der Kurzbefehl-Dienst deines Desktops die Tastenkürzel des Meters; dein Desktop fragt eventuell nach einer Bestätigung.",
-      "process": "Damit der Dienst sieht, welche App anfragt, lässt das Meter Programme, die unter deinem Benutzer laufen, während der Registrierung seine Prozessdetails sehen, wie es die meisten Apps immer tun. Das dauert unter einer Sekunde, danach verbirgt das Meter sie sofort wieder.",
+      "title": "Tastenkürzel einschalten?",
+      "desktop": "Unter Linux richtet dein Desktop die Tastenkürzel für das Meter ein und fragt dich eventuell, ob du sie erlaubst.",
+      "process": "Währenddessen (etwa eine Sekunde) ist das Meter für andere Programme auf deinem Computer so offen wie die meisten Apps die ganze Zeit. Danach kehrt es zu seiner üblichen, stärker abgeschotteten Einstellung zurück.",
       "anytime": "Du kannst die Tastenkürzel jederzeit wieder ausschalten.",
       "confirm": "Einschalten",
       "cancel": "Nicht jetzt"
-    }
+    },
+    "keybindTaken": "Ein anderes Programm verwendet diese Tasten bereits. Wähle andere Tasten.",
+    "keybindShared": "Eine andere Aktion verwendet diese Tasten. Wähle andere Tasten."
   },
   "support": {
     "button": "Unterstütze mich",

@@ -29,6 +29,9 @@ impl HotkeyManager {
     /// `on_reload` is called when the reload hotkey fires.
     /// `on_toggle` is called when the toggle window hotkey fires.
     /// `on_lock` is called when the click-through lock hotkey fires.
+    /// `on_status("reload" | "toggle" | "lock", registered)` says, for each
+    /// key set, whether Windows let the meter have it: false when another
+    /// program holds that combination.
     #[allow(clippy::too_many_arguments)]
     pub fn start(
         &self,
@@ -41,6 +44,7 @@ impl HotkeyManager {
         on_reload: impl Fn() + Send + 'static,
         on_toggle: impl Fn() + Send + 'static,
         on_lock: impl Fn() + Send + 'static,
+        on_status: impl Fn(&'static str, bool) + Send + 'static,
     ) {
         let mut listener = self.listener.lock().unwrap_or_else(|p| p.into_inner());
         if listener.as_ref().is_some_and(|(running, _)| running.load(Ordering::SeqCst)) {
@@ -93,6 +97,10 @@ impl HotkeyManager {
                             lock_mods, lock_vk);
                     }
                 }
+
+                if reload_vk > 0 { on_status("reload", reload_ok); }
+                if toggle_vk > 0 { on_status("toggle", toggle_ok); }
+                if lock_vk > 0 { on_status("lock", lock_ok); }
 
                 info!("Global hotkeys registered (reload={:#x}+{:#x}, toggle={:#x}+{:#x}, lock={:#x}+{:#x})",
                     reload_mods, reload_vk, toggle_mods, toggle_vk, lock_mods, lock_vk);

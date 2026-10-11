@@ -390,13 +390,15 @@
     },
     "globalHotkeys": "Usar atalhos de teclado",
     "hotkeyConsent": {
-      "title": "Ativar atalhos de teclado",
-      "desktop": "No Linux, o serviço de atalhos do seu ambiente de trabalho registra os atalhos do medidor, e ele pode pedir que você os confirme.",
-      "process": "Para que o serviço saiba qual aplicativo está pedindo, enquanto as teclas são registradas o medidor permite que os programas executados com o seu usuário vejam os detalhes do processo dele, como a maioria dos aplicativos sempre faz. Isso leva menos de um segundo, e o medidor os oculta de novo logo em seguida.",
+      "title": "Ativar os atalhos de teclado?",
+      "desktop": "No Linux, o seu ambiente de trabalho configura os atalhos do medidor e pode pedir que você os aprove.",
+      "process": "Enquanto isso (cerca de um segundo), o medidor fica tão aberto a outros programas do seu computador quanto a maioria dos aplicativos fica o tempo todo. Depois ele volta à configuração habitual, mais fechada.",
       "anytime": "Você pode desativar os atalhos a qualquer momento.",
       "confirm": "Ativar",
       "cancel": "Agora não"
-    }
+    },
+    "keybindTaken": "Outro programa já usa essas teclas. Escolha outras.",
+    "keybindShared": "Outra ação usa essas teclas. Escolha outras."
   },
   "support": {
     "button": "Me apoie",

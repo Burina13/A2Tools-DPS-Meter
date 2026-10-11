@@ -6964,6 +6964,14 @@ html.a2-offline .historyUploadBtn {
   color: #fff;
 }
 
+/* A key another program holds, or two actions share. */
+.settingsPanel .keybindBtn.isTaken,
+.settingsPanel .keybindBtn.isTaken:hover {
+  border-color: #e5484d;
+  box-shadow: inset 0 0 0 1px #e5484d;
+  color: #ffb4b4;
+}
+
 /* Keybinds turned off: the keys stay editable, dimmed. */
 .settingsSection.hotkeysOff .settingsRowKeybind {
   opacity: 0.5;

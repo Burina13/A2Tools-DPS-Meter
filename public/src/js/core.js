@@ -3891,6 +3891,39 @@ class DpsApp {
     };
     this.refreshKeybindLabels();
 
+    // A key another program holds, or one two of the meter's actions share,
+    // is framed in red with the reason on hover. The backend says which keys
+    // it could not register ("taken"); sharing is read off the labels.
+    let lastHotkeyStatus = {};
+    this.applyHotkeyStatus = (status) => {
+      lastHotkeyStatus = status && typeof status === "object" ? status : {};
+      const rows = [[reloadBtn, "reload"], [toggleBtn, "toggle"], [lockKeyBtn, "lock"]]
+        .filter(([btn]) => btn && btn.closest?.(".settingsRowKeybind")?.style?.display !== "none");
+      const labelOf = (btn) => (btn.querySelector?.(".keybindText")?.textContent || "").trim().toLowerCase();
+      for (const [btn, key] of rows) {
+        const shared = rows.some(([other]) => other !== btn && labelOf(other) === labelOf(btn));
+        const taken = lastHotkeyStatus[key] === "taken";
+        btn.classList?.toggle?.("isTaken", shared || taken);
+        if (shared) {
+          btn.title = this.i18n?.t?.("settings.keybindShared", "Another action uses these keys. Pick different keys.")
+            ?? "Another action uses these keys. Pick different keys.";
+        } else if (taken) {
+          btn.title = this.i18n?.t?.("settings.keybindTaken", "Another program already uses these keys. Pick different keys.")
+            ?? "Another program already uses these keys. Pick different keys.";
+        } else {
+          btn.removeAttribute?.("title");
+        }
+      }
+    };
+    const refreshLabels = this.refreshKeybindLabels;
+    this.refreshKeybindLabels = () => {
+      refreshLabels();
+      this.applyHotkeyStatus(lastHotkeyStatus);
+    };
+    Promise.resolve(window.javaBridge?.getHotkeyStatus?.())
+      .then((status) => this.applyHotkeyStatus(status || {}))
+      .catch(() => {});
+
     let activeRecording = null;
 
     const stopRecording = () => {

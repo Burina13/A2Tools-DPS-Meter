@@ -390,13 +390,15 @@
     },
     "globalHotkeys": "Usar atajos de teclado",
     "hotkeyConsent": {
-      "title": "Activar atajos de teclado",
-      "desktop": "En Linux, el servicio de atajos de tu escritorio registra los atajos del medidor, y tu escritorio puede pedirte que los confirmes.",
-      "process": "Para que el servicio sepa qué aplicación lo pide, mientras se registran las teclas el medidor deja que los programas que se ejecutan con tu usuario vean los detalles de su proceso, como hacen siempre la mayoría de las aplicaciones. Tarda menos de un segundo y el medidor los vuelve a ocultar enseguida.",
+      "title": "¿Activar los atajos de teclado?",
+      "desktop": "En Linux, tu escritorio configura los atajos del medidor y puede pedirte que los apruebes.",
+      "process": "Mientras tanto (alrededor de un segundo), el medidor queda tan abierto a otros programas de tu equipo como la mayoría de las aplicaciones lo están siempre. Luego vuelve a su ajuste habitual, más cerrado.",
       "anytime": "Puedes desactivar los atajos en cualquier momento.",
       "confirm": "Activar",
       "cancel": "Ahora no"
-    }
+    },
+    "keybindTaken": "Otro programa ya usa estas teclas. Elige otras.",
+    "keybindShared": "Otra acción usa estas teclas. Elige otras."
   },
   "support": {
     "button": "Apóyame",

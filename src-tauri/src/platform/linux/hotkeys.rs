@@ -75,6 +75,7 @@ impl HotkeyManager {
         on_reload: impl Fn() + Send + 'static,
         on_toggle: impl Fn() + Send + 'static,
         on_lock: impl Fn() + Send + 'static,
+        on_status: impl Fn(&'static str, bool) + Send + 'static,
     ) {
         let mut current = self.current.lock().unwrap_or_else(|p| p.into_inner());
         if current.as_ref().is_some_and(|l| l.running.load(Ordering::SeqCst)) {
@@ -98,7 +99,12 @@ impl HotkeyManager {
 
         let Listener { running, connection: slot } = listener;
         std::thread::spawn(move || {
-            let result = listen(&wanted, &slot, |id| match id {
+            let status = |id: &str, ok: bool| {
+                if let Some(key) = status_key(id) {
+                    on_status(key, ok);
+                }
+            };
+            let result = listen(&wanted, &slot, &status, |id| match id {
                 RELOAD => on_reload(),
                 TOGGLE => on_toggle(),
                 LOCK => on_lock(),
@@ -174,11 +180,55 @@ fn trigger(mods: u32, vk: u32) -> Option<String> {
     Some(out)
 }
 
+/// The settings' name for a shortcut id (`reset` is the reload key).
+fn status_key(id: &str) -> Option<&'static str> {
+    match id {
+        RELOAD => Some("reload"),
+        TOGGLE => Some("toggle"),
+        LOCK => Some("lock"),
+        _ => None,
+    }
+}
+
+/// Which shortcuts the desktop gave a key, from BindShortcuts' `shortcuts`
+/// result (`a(sa{sv})`, each with its `trigger_description`). A shortcut the
+/// desktop bound to nothing, because its suggested keys were taken, comes
+/// back with an empty description. `None` when the desktop says nothing.
+fn assigned(results: &HashMap<String, OwnedValue>) -> Option<Vec<(String, bool)>> {
+    let list = results.get("shortcuts")?;
+    let array = list.downcast_ref::<zbus::zvariant::Array>().ok()?;
+    let mut out = Vec::new();
+    for item in array.iter() {
+        let Value::Structure(entry) = item else { continue };
+        let fields = entry.fields();
+        let Some(Value::Str(id)) = fields.first() else { continue };
+        let Some(Value::Dict(props)) = fields.get(1) else { continue };
+        let described = props
+            .get::<&str, Value>(&"trigger_description")
+            .ok()
+            .flatten()
+            .is_some_and(|v| non_empty_text(&v));
+        out.push((id.as_str().to_string(), described));
+    }
+    Some(out)
+}
+
+/// A string with something in it, through any `v` wrapping.
+fn non_empty_text(value: &Value) -> bool {
+    match value {
+        Value::Str(s) => !s.as_str().trim().is_empty(),
+        Value::Value(inner) => non_empty_text(inner),
+        _ => false,
+    }
+}
+
 /// Register, open a session, bind the shortcuts and call `fire` with each
-/// activated shortcut's id until the connection closes.
+/// activated shortcut's id until the connection closes. `status(id, bound)`
+/// reports, per shortcut, whether a key is behind it.
 fn listen(
     wanted: &[(&'static str, &'static str, Option<String>)],
     slot: &Mutex<Option<Connection>>,
+    status: &dyn Fn(&str, bool),
     fire: impl Fn(&str),
 ) -> zbus::Result<()> {
     let connection = Connection::session()?;
@@ -232,7 +282,7 @@ fn listen(
         .collect();
     let mut bind_options: HashMap<&str, Value> = HashMap::new();
     bind_options.insert("handle_token", Value::from("a2t_bind_req"));
-    let (code, _) = request(
+    let (code, bound) = request(
         &connection,
         &portal,
         "a2t_bind_req",
@@ -254,7 +304,13 @@ fn listen(
     );
 
     if std::env::var_os("HYPRLAND_INSTANCE_SIGNATURE").is_some() {
-        hyprland_bind(wanted);
+        // Hyprland's portal assigns no keys; the meter binds them itself and
+        // knows which it could.
+        hyprland_bind(wanted, status);
+    } else if let Some(assigned) = assigned(&bound) {
+        for (id, ok) in assigned {
+            status(&id, ok);
+        }
     }
 
     *slot.lock().unwrap_or_else(|p| p.into_inner()) = Some(connection.clone());
@@ -279,7 +335,7 @@ fn listen(
 /// again). A key combination that is already bound, by the user or by an
 /// earlier start, is left alone, so nothing of theirs is shadowed and nothing
 /// fires twice.
-fn hyprland_bind(wanted: &[(&'static str, &'static str, Option<String>)]) {
+fn hyprland_bind(wanted: &[(&'static str, &'static str, Option<String>)], status: &dyn Fn(&str, bool)) {
     use std::process::Command;
     let run = |args: &[&str]| -> Option<String> {
         let out = Command::new("hyprctl").args(args).output().ok()?;
@@ -317,6 +373,7 @@ fn hyprland_bind(wanted: &[(&'static str, &'static str, Option<String>)]) {
         let Some((mods, key)) = hyprland_keys(trigger) else { continue };
         if existing.iter().any(|(m, k)| *m == mods.mask && *k == key.to_lowercase()) {
             info!("Hyprland: {} is already bound; left for {name}", trigger);
+            status(id, false);
             continue;
         }
         // Lua config (current Hyprland) first, then the hyprlang `keyword`.
@@ -328,6 +385,7 @@ fn hyprland_bind(wanted: &[(&'static str, &'static str, Option<String>)]) {
         let ok = run(&["eval", &lua]).is_some_and(|s| s.trim() == "ok")
             || run(&["keyword", "bind", &format!("{}, {}, global, {}", mods.space_joined(), key, name)])
                 .is_some_and(|s| s.trim() == "ok");
+        status(id, ok);
         if ok {
             info!("Hyprland: bound {trigger} to {name}");
         } else {

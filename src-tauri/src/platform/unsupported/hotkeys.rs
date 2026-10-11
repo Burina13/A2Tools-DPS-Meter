@@ -20,6 +20,7 @@ impl HotkeyManager {
         _: impl Fn() + Send + 'static,
         _: impl Fn() + Send + 'static,
         _: impl Fn() + Send + 'static,
+        _: impl Fn(&'static str, bool) + Send + 'static,
     ) {
     }
     pub fn stop(&self) {}

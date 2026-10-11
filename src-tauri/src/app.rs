@@ -12,7 +12,7 @@
 // where these were siblings at the crate root.
 use crate::{entity, i18n, logging, platform, share};
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -578,8 +578,33 @@ fn apply_all_targets_window(state: &AppState, value: &str) {
 /// briefly inspectable (`platform::hotkeys::DEFAULT_ON`).
 const GLOBAL_HOTKEYS_KEY: &str = "dpsMeter.globalHotkeys";
 
-/// The hotkey listener, kept so the Linux opt-in can start and stop it.
-struct Hotkeys(platform::hotkeys::HotkeyManager);
+/// The hotkey listener, kept so the setting can start and stop it, and what
+/// each key's registration came to: "ok", or "taken" when another program
+/// (or, on Linux, the desktop) holds that combination. Settings frames a
+/// taken key in red.
+struct Hotkeys {
+    manager: platform::hotkeys::HotkeyManager,
+    status: Arc<Mutex<HashMap<String, String>>>,
+}
+
+/// The keybind settings: changing one registers the keys again.
+const HOTKEY_KEYS: [&str; 3] = ["dpsMeter.hotkey", "dpsMeter.toggleWindowHotkey", "dpsMeter.lockHotkey"];
+
+/// What each key's registration came to, for Settings to show.
+#[tauri::command]
+fn get_hotkey_status(hotkeys: tauri::State<'_, Hotkeys>) -> HashMap<String, String> {
+    hotkeys.status.lock().clone()
+}
+
+fn set_hotkey_status(app: &tauri::AppHandle, update: impl FnOnce(&mut HashMap<String, String>)) {
+    let Some(hotkeys) = app.try_state::<Hotkeys>() else { return };
+    let snapshot = {
+        let mut status = hotkeys.status.lock();
+        update(&mut status);
+        status.clone()
+    };
+    let _ = app.emit("hotkey-status", snapshot);
+}
 
 /// Start or stop the hotkeys to match the settings.
 fn apply_global_hotkeys(app: &tauri::AppHandle) {
@@ -592,14 +617,25 @@ fn apply_global_hotkeys(app: &tauri::AppHandle) {
     if wanted {
         start_hotkeys(app, &state.settings);
     } else if let Some(hotkeys) = app.try_state::<Hotkeys>() {
-        hotkeys.0.stop();
+        hotkeys.manager.stop();
+        set_hotkey_status(app, |s| s.clear());
     }
+}
+
+/// A key changed: register them again with it, if they are on.
+fn restart_global_hotkeys(app: &tauri::AppHandle) {
+    if let Some(hotkeys) = app.try_state::<Hotkeys>() {
+        hotkeys.manager.stop();
+    }
+    set_hotkey_status(app, |s| s.clear());
+    apply_global_hotkeys(app);
 }
 
 /// Register the hotkeys from saved settings (or defaults).
 fn start_hotkeys(app: &tauri::AppHandle, settings: &Settings) {
     let hotkey_handle = app.clone();
     let Some(hotkeys) = app.try_state::<Hotkeys>() else { return };
+    let status_handle = app.clone();
 
     let reload_label = settings
         .get("dpsMeter.hotkey").unwrap_or_default();
@@ -615,7 +651,7 @@ fn start_hotkeys(app: &tauri::AppHandle, settings: &Settings) {
     let (lock_mods, lock_vk) = platform::hotkeys::parse_hotkey_label(&lock_label)
         .unwrap_or((0x0002 | 0x0001, 0x4C)); // Default: Ctrl+Alt+L
 
-    hotkeys.0.start(
+    hotkeys.manager.start(
         reload_mods, reload_vk,
         toggle_mods, toggle_vk,
         lock_mods, lock_vk,
@@ -663,6 +699,11 @@ fn start_hotkeys(app: &tauri::AppHandle, settings: &Settings) {
                 let _ = h.emit("overlay-lock-changed", !locked);
             }
         },
+        move |key, ok| {
+            set_hotkey_status(&status_handle, |s| {
+                s.insert(key.to_string(), if ok { "ok" } else { "taken" }.to_string());
+            });
+        },
     );
 }
 
@@ -679,6 +720,9 @@ fn update_settings(
         }
         if key == GLOBAL_HOTKEYS_KEY {
             apply_global_hotkeys(&app);
+        }
+        if HOTKEY_KEYS.contains(&key.as_str()) {
+            restart_global_hotkeys(&app);
         }
         let _ = app.emit("setting-changed", serde_json::json!({ "key": key, "value": value }));
         #[cfg(feature = "online")]
@@ -2779,7 +2823,10 @@ pub fn run() {
             });
 
             // Global hotkeys, unless turned off (or, on Linux, not yet on).
-            app.manage(Hotkeys(platform::hotkeys::HotkeyManager::new()));
+            app.manage(Hotkeys {
+                manager: platform::hotkeys::HotkeyManager::new(),
+                status: Arc::new(Mutex::new(HashMap::new())),
+            });
             apply_global_hotkeys(app.handle());
 
             // Periodic DPS update emission (every 500ms)
@@ -3045,6 +3092,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             get_app_version,
+            get_hotkey_status,
             get_dps_snapshot,
             get_skill_details,
             get_details_context,
