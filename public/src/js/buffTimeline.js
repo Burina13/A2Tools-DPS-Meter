@@ -117,6 +117,65 @@ const buffAxisTicks = (durationMs, maxTicks = 8) => {
   return ticks;
 };
 
+// Merge the pieces of several tracks into one: where any is on, the merged
+// one is, with the most stacks of those on; a piece's end code is kept only
+// where nothing continues past it (0, "runs on", elsewhere).
+const unionBuffSegments = (lists) => {
+  const pieces = lists.flat().filter((s) => s && s.end > s.start);
+  if (!pieces.length) return [];
+  const cuts = [...new Set(pieces.flatMap((s) => [s.start, s.end]))].sort((a, b) => a - b);
+  const out = [];
+  for (let i = 0; i + 1 < cuts.length; i += 1) {
+    const a = cuts[i];
+    const b = cuts[i + 1];
+    const on = pieces.filter((s) => s.start <= a && s.end >= b);
+    if (!on.length) continue;
+    const stacks = Math.max(...on.map((s) => s.stacks));
+    const goesOn = on.some((s) => s.end > b);
+    const ending = on.filter((s) => s.end === b);
+    const how = goesOn ? 0 : ending[ending.length - 1].how;
+    const last = out[out.length - 1];
+    if (last && last.end === a && last.how === 0 && last.stacks === stacks) {
+      last.end = b;
+      last.how = how;
+    } else {
+      out.push({ start: a, end: b, stacks, how });
+    }
+  }
+  return out;
+};
+
+// One row per buff name and caster: the game applies some effects under more
+// than one id (Sprint Mantra as 181600101 and 181600111, from two versions of
+// the skill), which showed as the same buff twice with nearly the same bars.
+// The merged row is on wherever either was; it keeps the id, and so the
+// icon, of the one on longest. `nameOf(track)` is the shown name.
+const mergeSameNameTracks = (tracks, nameOf, durationMs) => {
+  const groups = new Map();
+  for (const t of tracks) {
+    const key = [nameOf(t), t.by, t.on, t.summon ? 1 : 0].join("|");
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(t);
+  }
+  const duration = Number(durationMs) || 0;
+  const out = [];
+  for (const list of groups.values()) {
+    if (list.length === 1) {
+      out.push(list[0]);
+      continue;
+    }
+    const lead = list.reduce((a, b) => ((b.up || 0) > (a.up || 0) ? b : a));
+    const segments = unionBuffSegments(list.map((t) => t._segments || parseBuffSegments(t.segs)));
+    const up = segments.reduce((sum, s) => {
+      const from = Math.max(0, s.start);
+      const to = duration > 0 ? Math.min(duration, s.end) : s.end;
+      return sum + Math.max(0, to - from);
+    }, 0);
+    out.push({ ...lead, _segments: segments, up, mergedIds: list.map((t) => t.id) });
+  }
+  return out;
+};
+
 const firstBuffStart = (track) => {
   const segs = track._segments || parseBuffSegments(track.segs);
   return segs.length ? segs[0].start : Infinity;
@@ -514,6 +573,15 @@ const createBuffTimeline = ({ root, describeActor = () => null }) => {
       return;
     }
     const rows = selectBuffRows(tracks, { ...data, ...options });
+    const sortRows = (list) => {
+      const merged = mergeSameNameTracks(list, buffName, data.durationMs);
+      if (merged.length === list.length) return list;
+      return options.sort === "first"
+        ? merged.sort((a, b) => firstBuffStart(a) - firstBuffStart(b) || (b.up || 0) - (a.up || 0) || a.id - b.id)
+        : merged.sort((a, b) => (b.up || 0) - (a.up || 0) || firstBuffStart(a) - firstBuffStart(b) || a.id - b.id);
+    };
+    rows.player = sortRows(rows.player);
+    rows.target = sortRows(rows.target);
     body.appendChild(axis());
     if (data.playerId === null || data.playerId === undefined) {
       body.appendChild(note(t("details.buffs.selectPlayer", "Select a player above to see their buffs.")));

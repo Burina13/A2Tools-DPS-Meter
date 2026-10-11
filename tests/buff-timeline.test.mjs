@@ -147,3 +147,25 @@ test("a buff's icon is its own, then its skill's, then a dot", () => {
   // A name that is not a plain file name is not put into a URL.
   assert.equal(window.skillIcons.getAbnormalIconCandidates("../x", 0).length, 1);
 });
+
+test("one row per buff name and caster: same-name ids merge, on wherever either was", () => {
+  const merge = get("mergeSameNameTracks");
+  const tracks = [
+    { id: 181600101, by: 7, on: 7, skill: 18160010, up: 6000, segs: "0,4000,1,0;4000,6000,2,3" },
+    { id: 181600111, by: 7, on: 7, skill: 18160011, up: 3000, segs: "5000,8000,1,1" },
+    { id: 999, by: 7, on: 7, up: 1000, segs: "0,1000,1,1" },
+    { id: 181600111, by: 8, on: 7, up: 1000, segs: "0,1000,1,1" },
+  ];
+  const names = { 181600101: "Sprint Mantra", 181600111: "Sprint Mantra", 999: "Other" };
+  const rows = plain(merge(tracks, (t) => names[t.id], 10000));
+  assert.equal(rows.length, 3, "the two Sprint Mantras from caster 7 merge; caster 8's stays apart");
+  const sprint = rows.find((r) => r.mergedIds);
+  assert.equal(sprint.id, 181600101, "keeps the id of the one on longest");
+  assert.deepEqual(sprint.mergedIds, [181600101, 181600111]);
+  assert.deepEqual(sprint._segments, [
+    { start: 0, end: 4000, stacks: 1, how: 0 },
+    { start: 4000, end: 6000, stacks: 2, how: 0 },
+    { start: 6000, end: 8000, stacks: 1, how: 1 },
+  ]);
+  assert.equal(sprint.up, 8000);
+});
