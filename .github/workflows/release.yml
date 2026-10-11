@@ -1,0 +1,61 @@
+# Fork: builds the Windows MSI and attaches it (with SHA256 sums) to a GitHub
+# release. Trigger: push a tag like `party-v2.0.57-1`, or run by hand
+# (workflow_dispatch) to get the MSI as an artifact without a release.
+#
+# Mirrors ci.yml's desktop job setup; `npm run tauri build` runs vite first
+# (beforeBuildCommand) and bundles the MSI via the wix template. Npcap is
+# loaded at runtime through libloading, so no SDK is needed to build.
+name: Release MSI
+
+on:
+  push:
+    tags: ["party-v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  msi:
+    name: Windows MSI
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - name: Build MSI
+        run: npm run tauri build
+      - name: Rename MSI (no spaces in the file name)
+        run: npm run rename-msi
+      - name: SHA256 checksums
+        shell: pwsh
+        run: |
+          Get-ChildItem src-tauri/target/release/bundle/msi/*.msi | ForEach-Object {
+            $h = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower()
+            Add-Content -Path SHA256SUMS.txt -Value "$h  $($_.Name)" -Encoding ascii
+          }
+          Get-Content SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: msi
+          path: |
+            src-tauri/target/release/bundle/msi/*.msi
+            SHA256SUMS.txt
+      - name: GitHub release (on tag)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            src-tauri/target/release/bundle/msi/*.msi
+            SHA256SUMS.txt

@@ -579,6 +579,12 @@ pub struct SliceMeta {
     pub gave_up: bool,
 }
 
+/// The uploader's actor id for a saved fight, as the slice recorded it.
+/// Fork: the party upload sends it so the server knows whose capture this is.
+pub fn uploader_actor_id(app_data_dir: &Path, id: &str) -> Option<i32> {
+    read_meta(app_data_dir, id).uploader_actor_id
+}
+
 fn read_meta(app_data_dir: &Path, id: &str) -> SliceMeta {
     std::fs::read_to_string(meta_path(app_data_dir, id))
         .ok()

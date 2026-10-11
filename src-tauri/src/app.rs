@@ -309,6 +309,39 @@ fn auto_upload(app: tauri::AppHandle, record: FightRecord) {
     });
 }
 
+#[cfg(feature = "online")]
+/// Fork: upload a finished fight to the party server (see `party_upload`).
+/// Mirrors `auto_upload`, with its own in-flight key and retry queue.
+fn party_upload_fight(app: tauri::AppHandle, record: FightRecord) {
+    let Some(in_flight) = InFlight::start(&format!("party:{}", record.id)) else { return };
+    tauri::async_runtime::spawn(async move {
+        let _in_flight = in_flight;
+        let Some(state) = app.try_state::<AppState>() else { return };
+        let Some((url, key)) = crate::party_upload::config(&state.settings) else { return };
+        match crate::party_upload::upload(&state.http, &state.app_data_dir, &record, &url, &key)
+            .await
+        {
+            Ok(()) => {
+                crate::party_upload::mark_sent(&state.app_data_dir, &record.id);
+                tracing::info!("Party upload of {} accepted", record.id);
+                let _ = app.emit("party-fight-uploaded", serde_json::json!({
+                    "fightId": record.id,
+                }));
+            }
+            Err(failure) => {
+                crate::party_upload::note_failure(
+                    &state.app_data_dir, &record.id, failure.retryable, crate::clock::now_ms());
+                tracing::info!(
+                    "Party upload of {} failed{}: {}",
+                    record.id,
+                    if failure.retryable { ", will retry" } else { "" },
+                    failure.message
+                );
+            }
+        }
+    });
+}
+
 /// Save fights to History, with the packets behind each so it can be uploaded
 /// and verified later (training dummies are not logs), and auto-upload the
 /// finished ones when that is on.
@@ -330,14 +363,27 @@ fn save_fight_records(app: &tauri::AppHandle, state: &AppState, records: Vec<Fig
     }
     if !records.is_empty() {
         share::prune_slices(&state.app_data_dir);
+        #[cfg(feature = "online")]
+        crate::party_upload::prune(&state.app_data_dir);
     }
     #[cfg(feature = "online")]
-    if state.settings.get(share::AUTO_UPLOAD_KEY).as_deref() == Some("true") {
+    {
         let now = crate::clock::now_ms();
-        for record in records.into_iter()
-            .filter(|r| share::wants_auto_upload(&state.app_data_dir, r, now))
-        {
-            auto_upload(app.clone(), record);
+        if state.settings.get(share::AUTO_UPLOAD_KEY).as_deref() == Some("true") {
+            for record in records.iter()
+                .filter(|r| share::wants_auto_upload(&state.app_data_dir, r, now))
+            {
+                auto_upload(app.clone(), record.clone());
+            }
+        }
+        // Fork: the party upload is independent of the a2tools one — either,
+        // both or neither can be on, and each keeps its own retry queue.
+        if crate::party_upload::config(&state.settings).is_some() {
+            for record in records.iter()
+                .filter(|r| crate::party_upload::wants_upload(&state.app_data_dir, r, now))
+            {
+                party_upload_fight(app.clone(), record.clone());
+            }
         }
     }
 }
@@ -2899,6 +2945,37 @@ pub fn run() {
             // on Tokio's cooperative workers. The next tick waits for completion.
             let handle_save = app.handle().clone();
             tauri::async_runtime::spawn(async move {
+                // Fork: the party upload's offline-queue promise — a fight
+                // recorded without a connection (or with the meter closed too
+                // soon) is sent on the next launch. Parked entries get fresh
+                // retries, then recent History is offered whatever never went.
+                #[cfg(feature = "online")]
+                {
+                    let handle = handle_save.clone();
+                    let _ = crate::blocking::HISTORY.run(move || {
+                        let Some(state) = handle.try_state::<AppState>() else { return };
+                        if crate::party_upload::config(&state.settings).is_none() {
+                            return;
+                        }
+                        crate::party_upload::requeue_on_launch(&state.app_data_dir);
+                        let now = crate::clock::now_ms();
+                        for summary in state.fight_history.list_fights() {
+                            if summary.is_train
+                                || now - (summary.start_time_ms + summary.duration_ms)
+                                    > 48 * 3_600_000
+                            {
+                                continue;
+                            }
+                            if let Ok(record) = state.fight_history.load_fight(&summary.id) {
+                                if crate::party_upload::wants_upload(
+                                    &state.app_data_dir, &record, now)
+                                {
+                                    party_upload_fight(handle.clone(), record);
+                                }
+                            }
+                        }
+                    }).await;
+                }
                 loop {
                     tokio::time::sleep(Duration::from_secs(30)).await;
                     let handle = handle_save.clone();
@@ -2922,6 +2999,16 @@ pub fn run() {
                             for id in share::auto_upload_retries_due(&state.app_data_dir, now) {
                                 if let Ok(record) = state.fight_history.load_fight(&id) {
                                     auto_upload(handle.clone(), record);
+                                }
+                            }
+                        }
+                        // Fork: party uploads that failed and are due again.
+                        #[cfg(feature = "online")]
+                        if crate::party_upload::config(&state.settings).is_some() {
+                            let now = crate::clock::now_ms();
+                            for id in crate::party_upload::retries_due(&state.app_data_dir, now) {
+                                if let Ok(record) = state.fight_history.load_fight(&id) {
+                                    party_upload_fight(handle.clone(), record);
                                 }
                             }
                         }

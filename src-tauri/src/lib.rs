@@ -34,6 +34,10 @@ pub mod logging;
 pub mod platform;
 #[cfg(feature = "online")]
 mod presence;
+// Fork: automatic upload of finished boss fights to the party's own server
+// (merging captures of the whole party into one canonical result).
+#[cfg(feature = "online")]
+pub mod party_upload;
 #[cfg(feature = "desktop")]
 pub mod share;
 #[cfg(feature = "online")]

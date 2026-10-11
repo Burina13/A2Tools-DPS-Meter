@@ -82,6 +82,10 @@ class DpsApp {
       bossLogs: "dpsMeter.bossLogsEnabled",
       saveRawPackets: "dpsMeter.saveRawPackets",
       autoUpload: "dpsMeter.autoUpload",
+      // Fork: upload finished boss fights to the party's own server.
+      partyUpload: "dpsMeter.partyUpload",
+      partyUploadUrl: "dpsMeter.partyUploadUrl",
+      partyUploadKey: "dpsMeter.partyUploadKey",
       discordActivity: "dpsMeter.discordActivity",
       discordPromoShown: "dpsMeter.discordPromoShown",
       accountPromoShown: "dpsMeter.accountPromoShown",
@@ -2386,6 +2390,9 @@ class DpsApp {
     this.playerNamesBoldCheckbox = document.querySelector(".playerNamesBoldCheckbox");
     this.showSupporterColorsCheckbox = document.querySelector(".showSupporterColorsCheckbox");
     this.autoUploadCheckbox = document.querySelector(".autoUploadCheckbox");
+    this.partyUploadCheckbox = document.querySelector(".partyUploadCheckbox");
+    this.partyUploadUrlInput = document.querySelector(".partyUploadUrlInput");
+    this.partyUploadKeyInput = document.querySelector(".partyUploadKeyInput");
     this.accountStateEl = document.querySelector(".accountState");
     this.accountHintEl = document.querySelector(".accountHint");
     this.accountConnectBtn = document.querySelector(".accountConnectBtn");
@@ -2747,6 +2754,36 @@ class DpsApp {
         this.safeGetSetting(this.storageKeys.autoUpload) === "true";
       this.autoUploadCheckbox.addEventListener("change", (event) => {
         this.safeSetSetting(this.storageKeys.autoUpload, String(!!event.target?.checked));
+      });
+    }
+
+    // Fork: party upload — off unless turned on, same reasoning as above.
+    // The URL and key live in the client's settings.json, never in the repo.
+    if (this.partyUploadCheckbox) {
+      this.partyUploadCheckbox.checked =
+        this.safeGetSetting(this.storageKeys.partyUpload) === "true";
+      this.partyUploadCheckbox.addEventListener("change", (event) => {
+        this.safeSetSetting(this.storageKeys.partyUpload, String(!!event.target?.checked));
+      });
+    }
+    if (this.partyUploadUrlInput) {
+      this.partyUploadUrlInput.value =
+        this.safeGetSetting(this.storageKeys.partyUploadUrl) || "";
+      this.partyUploadUrlInput.addEventListener("change", (event) => {
+        this.safeSetSetting(
+          this.storageKeys.partyUploadUrl,
+          String(event.target?.value || "").trim()
+        );
+      });
+    }
+    if (this.partyUploadKeyInput) {
+      this.partyUploadKeyInput.value =
+        this.safeGetSetting(this.storageKeys.partyUploadKey) || "";
+      this.partyUploadKeyInput.addEventListener("change", (event) => {
+        this.safeSetSetting(
+          this.storageKeys.partyUploadKey,
+          String(event.target?.value || "").trim()
+        );
       });
     }
 

@@ -544,6 +544,43 @@
                       <span class="settingsToggleTrack" aria-hidden="true"></span>
                     </span>
                   </label>
+                  <!-- Fork: party upload — finished boss fights go to the party's own
+                       server, which merges everyone's captures into one result.
+                       Independent of the a2tools.app upload above. -->
+                  <h2 class="settingsSectionTitle" style="margin-top:14px">Party upload</h2>
+                  <label class="settingsToggle" title="When a boss fight ends it is sent to your party's own server, which merges everyone's captures into one shared result on Discord. Needs the server URL and your personal key (ask the bot: /dpsmeter kluc). Training dummies are never sent.">
+                    <span class="settingsToggleLabel settingsLabel">Upload boss fights to the party server</span>
+                    <span class="settingsToggleControl">
+                      <input type="checkbox" class="partyUploadCheckbox" />
+                      <span class="settingsToggleTrack" aria-hidden="true"></span>
+                    </span>
+                  </label>
+                  <div class="settingsRow">
+                    <label class="settingsLabel" for="partyUploadUrlInput">Server URL</label>
+                    <div class="settingsRowEnd">
+                      <input
+                        id="partyUploadUrlInput"
+                        class="partyUploadUrlInput"
+                        type="text"
+                        maxlength="200"
+                        spellcheck="false"
+                        autocomplete="off"
+                        placeholder="https://aion2-dps.example.com" />
+                    </div>
+                  </div>
+                  <div class="settingsRow">
+                    <label class="settingsLabel" for="partyUploadKeyInput">Personal key</label>
+                    <div class="settingsRowEnd">
+                      <input
+                        id="partyUploadKeyInput"
+                        class="partyUploadKeyInput"
+                        type="password"
+                        maxlength="200"
+                        spellcheck="false"
+                        autocomplete="off"
+                        placeholder="a2dps_…" />
+                    </div>
+                  </div>
                 </div>
                 <div class="accountCodeBox" style="display:none">
                   <div class="accountCodeLabel" data-i18n="settings.account.codePrompt">Approve this code in your browser:</div>

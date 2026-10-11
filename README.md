@@ -1,4 +1,31 @@
-# A2Tools DPS Meter
+# A2Tools DPS Meter — fork s party uploadom
+
+> **Toto je fork [taengu/A2Tools-DPS-Meter](https://github.com/taengu/A2Tools-DPS-Meter)**
+> (GPL-3.0) pre partiu Tvoj Tatko. Pridáva **automatický upload boss fightov na
+> vlastný server partie**, ktorý zlúči captury všetkých členov do jedného
+> spoločného výsledku v Discord kanáli `#aion2-dps-meter` — každý klient totiž
+> vidí len svoje pakety a čísla sa inak u každého líšia. Nič iné sa nemení;
+> upload na a2tools.app ostáva dostupný a predvolene vypnutý, rovnako stream
+> overlay (port 18731).
+>
+> ## Inštalácia pre partiu (3 kroky)
+>
+> 1. **Npcap** — stiahni z [npcap.com](https://npcap.com/#download) a pri
+>    inštalácii zaškrtni **„Install Npcap in WinPcap API-compatible Mode“**.
+>    (Meter ho vie stiahnuť a spustiť aj sám pri prvom štarte.)
+> 2. **MSI** — nainštaluj najnovšie MSI z
+>    [Releases](https://github.com/Burina13/A2Tools-DPS-Meter/releases)
+>    (SHA256 súčty sú v poznámkach releasu).
+> 3. **Kľúč** — na Discorde napíš `/dpsmeter kluc` (treba rolu Aion2),
+>    v metri otvor **Settings → A2 Tools Account → Party upload**: zapni
+>    prepínač, vlož Server URL z odpovede bota a svoj kľúč. Hotovo — každý
+>    dokončený boss fight sa odošle sám (tréningové figuríny nie);
+>    bez pripojenia počká a pošle sa pri ďalšom spustení.
+>
+> S kľúčom zaobchádzaj ako s heslom (`/dpsmeter zrus` ho zruší). Klient hru
+> nijako nemodifikuje — len pasívne číta pakety, presne ako upstream.
+
+---
 
 [![License](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](LICENSE)
 [![GitHub Issues](https://img.shields.io/github/issues/taengu/A2Tools-DPS-Meter)](https://github.com/taengu/A2Tools-DPS-Meter/issues)
