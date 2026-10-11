@@ -162,6 +162,15 @@ fn listen(
 ) -> zbus::Result<()> {
     let connection = Connection::session()?;
 
+    // The portal reads /proc/<pid>/root to tell a sandboxed app from a host
+    // one, and a process with file capabilities (the packages give the meter
+    // cap_net_raw, for capture) is not dumpable, so its /proc entries belong
+    // to root and the portal refused every call: "Portal operation not
+    // allowed: Unable to open /proc/<pid>/root" (#42). So the meter is made
+    // dumpable for the calls only, and not again once the last is sent:
+    // under a second, never while a desktop's confirmation dialog waits.
+    let mut inspectable = Inspectable::open();
+
     // A host (unsandboxed) app says who it is before any other portal call,
     // so the desktop files its shortcuts under the meter rather than an
     // unnamed app. Portals before 1.19 have no registry: carry on without.
@@ -178,7 +187,8 @@ fn listen(
     let mut options: HashMap<&str, Value> = HashMap::new();
     options.insert("handle_token", Value::from("a2t_session_req"));
     options.insert("session_handle_token", Value::from("a2t_session"));
-    let (code, results) = request(&connection, &portal, "a2t_session_req", "CreateSession", &(options,))?;
+    let (code, results) =
+        request(&connection, &portal, "a2t_session_req", "CreateSession", &(options,), || {})?;
     if code != 0 {
         return Err(zbus::Error::Failure(format!("CreateSession refused ({code})")));
     }
@@ -207,6 +217,7 @@ fn listen(
         "a2t_bind_req",
         "BindShortcuts",
         &(&session_path, shortcuts, "", bind_options),
+        || drop(inspectable.take()),
     )?;
     if code != 0 {
         // 1: the user dismissed the desktop's dialog. Nothing is bound.
@@ -361,6 +372,33 @@ fn proxy<'a>(connection: &Connection, path: &'a str, interface: &'a str) -> zbus
         .build()
 }
 
+/// The process made dumpable while it lives, and made non-dumpable again when
+/// dropped. `None` when it already was dumpable (no file capabilities, as
+/// when built from source and run as yourself): nothing to undo then.
+struct Inspectable;
+
+impl Inspectable {
+    fn open() -> Option<Self> {
+        // SAFETY: prctl with these options only reads or sets this
+        // process's dumpable flag.
+        unsafe {
+            if libc::prctl(libc::PR_GET_DUMPABLE, 0, 0, 0, 0) != 0 {
+                return None;
+            }
+            (libc::prctl(libc::PR_SET_DUMPABLE, 1, 0, 0, 0) == 0).then_some(Inspectable)
+        }
+    }
+}
+
+impl Drop for Inspectable {
+    fn drop(&mut self) {
+        // SAFETY: as above.
+        unsafe {
+            libc::prctl(libc::PR_SET_DUMPABLE, 0, 0, 0, 0);
+        }
+    }
+}
+
 /// Call a portal method that answers through a Request object, and wait for
 /// its Response. The Request's path is known before the call (the sender's
 /// unique name and the token), so its signal is subscribed first and cannot
@@ -371,6 +409,7 @@ fn request<B>(
     token: &str,
     method: &str,
     body: &B,
+    sent: impl FnOnce(),
 ) -> zbus::Result<(u32, HashMap<String, OwnedValue>)>
 where
     B: serde::Serialize + zbus::zvariant::DynamicType,
@@ -383,6 +422,8 @@ where
     let request = proxy(connection, &path, "org.freedesktop.portal.Request")?;
     let mut responses = request.receive_signal("Response")?;
     let _handle: zbus::zvariant::OwnedObjectPath = portal.call(method, body)?;
+    // The portal has checked the caller by now; only the answer is awaited.
+    sent();
     let message = responses
         .next()
         .ok_or_else(|| zbus::Error::Failure(format!("{method}: no response")))?;
