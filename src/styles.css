@@ -6972,6 +6972,67 @@ html.a2-offline .historyUploadBtn {
   color: #ffb4b4;
 }
 
+/* Plugins: hidden rows stay hidden (rows set their own display). */
+.settingsPanel .pluginDevRow[hidden],
+.settingsPanel .pluginList[hidden] {
+  display: none;
+}
+/* Plugins: the warning, each plugin's description, and the status of the last
+   action show (settings hints are hidden by default); errors in red. */
+#settingsSection-plugins .settingsHint {
+  display: block;
+  max-width: none;
+}
+#settingsSection-plugins .settingsHint:empty,
+#settingsSection-plugins .settingsHint[hidden] {
+  display: none;
+}
+/* "Installed" and "Available" above their lists. */
+.settingsPanel .pluginListTitle {
+  margin: 14px 0 2px;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+}
+.settingsPanel .pluginListEmpty,
+.settingsPanel .pluginCatalogStatus {
+  padding: 6px 0;
+}
+.settingsPanel .pluginDevToggle {
+  margin-top: 14px;
+}
+/* A developer-folder plugin, in the installed list. */
+.settingsPanel .pluginUnreviewedTag {
+  padding: 0 6px;
+  border: 1px solid #d9a13c;
+  border-radius: 3px;
+  color: #f0c46c;
+  font-size: 11px;
+  font-weight: 500;
+}
+/* What a plugin may do, in the install prompt. */
+.settingsPanel .pluginConsentList {
+  margin: 0 0 12px;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+/* A plugin the last update check changed: a green arrow by its version. */
+.settingsPanel .pluginUpdated {
+  box-shadow: inset 2px 0 0 #4ade80;
+  padding-left: 8px;
+}
+.settingsPanel .pluginUpdatedIcon,
+.settingsPanel .pluginUpdated svg {
+  width: 14px;
+  height: 14px;
+  color: #4ade80;
+  vertical-align: -2px;
+}
+.settingsPanel .pluginError {
+  color: #ff9a9a;
+}
+
 /* Why a key is framed red, under its label. */
 .settingsPanel .keybindHint {
   margin-top: 2px;

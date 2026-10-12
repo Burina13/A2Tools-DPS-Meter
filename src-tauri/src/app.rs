@@ -887,7 +887,7 @@ fn is_admin() -> bool {
 }
 
 #[tauri::command]
-fn set_language(state: tauri::State<'_, AppState>, language: String) {
+fn set_language(app: tauri::AppHandle, state: tauri::State<'_, AppState>, language: String) {
     tracing::info!("Language change requested: {}", language);
     if let Some(ref data_dir) = state.i18n_data_dir {
         i18n::lookup::load_language(&state.skill_lookup, &state.npc_lookup, data_dir, &language);
@@ -895,6 +895,7 @@ fn set_language(state: tauri::State<'_, AppState>, language: String) {
         tracing::warn!("No i18n data dir available for language reload");
     }
     state.settings.set("dpsMeter.language", &language);
+    crate::plugins::broadcast(&app, "language", serde_json::Value::String(language));
 }
 
 #[tauri::command]
@@ -2593,6 +2594,10 @@ pub fn run() {
             })
             .build())
         .plugin(tauri_plugin_process::init())
+        // Plugin files, each plugin's own origin (crate::plugins::serve).
+        .register_uri_scheme_protocol(crate::plugins::SCHEME, |ctx, request| {
+            crate::plugins::serve(ctx.app_handle(), request.uri().path())
+        })
         // Closing the meter quits, even with Details, History or a kept
         // Settings window still open.
         .on_window_event(|window, event| {
@@ -2823,6 +2828,11 @@ pub fn run() {
             });
 
             // Global hotkeys, unless turned off (or, on Linux, not yet on).
+            // Plugins: the installed ones, and developer-mode folders (crate::plugins).
+            let plugin_host = std::sync::Arc::new(crate::plugins::PluginHost::default());
+            app.manage(std::sync::Arc::clone(&plugin_host));
+            plugin_host.reload(app.handle());
+
             app.manage(Hotkeys {
                 manager: platform::hotkeys::HotkeyManager::new(),
                 status: Arc::new(Mutex::new(HashMap::new())),
@@ -3093,6 +3103,19 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_app_version,
             get_hotkey_status,
+            crate::plugins::plugin_list,
+            crate::plugins::plugin_set_dev_mode,
+            crate::plugins::plugin_add_folder,
+            crate::plugins::plugin_remove_folder,
+            crate::plugins::plugin_check_updates,
+            crate::plugins::plugin_catalog,
+            crate::plugins::plugin_install,
+            crate::plugins::plugin_uninstall,
+            crate::plugins::plugin_debug_frame,
+            crate::plugins::plugin_open,
+            crate::plugins::plugin_hello,
+            crate::plugins::plugin_storage_get,
+            crate::plugins::plugin_storage_set,
             get_dps_snapshot,
             get_skill_details,
             get_details_context,

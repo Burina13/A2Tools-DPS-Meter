@@ -37,6 +37,7 @@ online = [
     "dep:futures-util",
     "dep:urlencoding",
     "dep:discord-rich-presence",
+    "dep:ed25519-dalek",
 ]
 desktop = [
     "dep:tauri",
@@ -121,6 +122,8 @@ futures-util = { version = "0.3", optional = true }
 getrandom = { version = "0.3", optional = true }
 urlencoding = { version = "2", optional = true }
 sha2 = "0.11.0"
+# Checks the signature on the reviewed-plugin catalog (src/plugins/catalog.rs).
+ed25519-dalek = { version = "2", default-features = false, features = ["std"], optional = true }
 flate2 = { version = "1.1.10", optional = true }
 
 [target.'cfg(windows)'.dependencies]
