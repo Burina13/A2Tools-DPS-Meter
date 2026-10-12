@@ -564,6 +564,9 @@ fn get_settings(state: tauri::State<'_, AppState>) -> std::collections::HashMap<
 /// "Round DPS" would appear to do nothing until the app restarted. Only real
 /// changes are emitted (see `Settings::set`), so the originating window's echo
 /// stops here rather than bouncing between windows.
+/// An unchanged DPS update is sent again after this many 500 ms ticks.
+const DPS_RESEND_TICKS: u64 = 4;
+
 /// The All Targets time range (Settings), in milliseconds.
 const ALL_TARGETS_WINDOW_KEY: &str = "dpsMeter.allTargetsWindowMs";
 
@@ -2853,6 +2856,10 @@ pub fn run() {
                 interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
                 let mut tick_count: u64 = 0;
                 let mut hide_delay: u64 = 0; // ticks to wait before hiding
+                // The last update sent, and the tick it went: an unchanged one
+                // is sent again only every DPS_RESEND_TICKS.
+                let mut last_dps: Option<serde_json::Value> = None;
+                let mut last_dps_tick: u64 = 0;
                 loop {
                     interval.tick().await;
                     tick_count += 1;
@@ -2872,7 +2879,16 @@ pub fn run() {
                         match result {
                             Ok((dps, lock_ms, calc_ms)) => {
                                 let emitting = std::time::Instant::now();
-                                let _ = handle.emit("dps-update", &dps);
+                                // Every window copies the update and turns it into
+                                // text; idle, it was the same each time. Sent when
+                                // it changed, else every few seconds, and a window
+                                // asks for the current one as it opens.
+                                let dps = serde_json::to_value(&dps).unwrap_or_default();
+                                if last_dps.as_ref() != Some(&dps) || tick_count - last_dps_tick >= DPS_RESEND_TICKS {
+                                    let _ = handle.emit("dps-update", &dps);
+                                    last_dps = Some(dps);
+                                    last_dps_tick = tick_count;
+                                }
                                 let emit_ms = emitting.elapsed().as_millis();
                                 let total_ms = t0.elapsed().as_millis();
                                 if total_ms > 200 {

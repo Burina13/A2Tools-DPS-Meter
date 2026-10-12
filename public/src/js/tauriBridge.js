@@ -249,7 +249,8 @@
   })();
 
   // --- DPS data polling via events ---
-  // The Rust backend emits "dps-update" every 500ms.
+  // The Rust backend emits "dps-update" when it changes (checked every 500ms,
+  // and sent again every 2 s while it doesn't).
   // We cache the latest snapshot so getDpsData() can return it synchronously.
   if (viewMode !== "settings") listen("dps-update", (event) => {
     cachedDpsJson = JSON.stringify(event.payload);
@@ -259,6 +260,14 @@
     // grew with fight length. The details panel self-refreshes every 2s while
     // open (details.js), and getDetailsContext() below refreshes on demand.
   });
+
+  // The backend sends an update when it changes (and every 2 s), so a window
+  // opened while nothing changes asks for the current one.
+  if (viewMode !== "settings") {
+    invoke("get_dps_snapshot").then((dps) => {
+      if (cachedDpsJson == null) cachedDpsJson = JSON.stringify(dps);
+    }).catch(() => {});
+  }
 
   if (viewMode !== "settings") listen("ping-update", (event) => {
     cachedPing = event.payload;
