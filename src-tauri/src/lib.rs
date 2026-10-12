@@ -32,6 +32,8 @@ pub mod history;
 pub mod logging;
 #[cfg(feature = "desktop")]
 pub mod platform;
+#[cfg(feature = "desktop")]
+pub mod plugins;
 #[cfg(feature = "online")]
 mod presence;
 // Fork: automatic upload of finished boss fights to the party's own server
