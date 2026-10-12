@@ -333,7 +333,10 @@ impl PluginHost {
                 *seq += 1;
                 *seq
             };
+            // Named for its plugin: a window's listener hears events sent to
+            // any window (see pluginHost.js).
             let event = serde_json::json!({
+                "plugin": item.plugin,
                 "seq": seq,
                 "event": item.event,
                 "data": item.data,

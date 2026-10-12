@@ -134,6 +134,11 @@
   listen("plugin-event", (event) => {
     const payload = event.payload || {};
     if (typeof payload.event !== "string") return;
+    // `listen` hears the event whichever window it was sent to, so each plugin
+    // window heard every plugin's, and another plugin's decoder of the same
+    // name passed the permission check: with a copy of the Pet Soul Tracker
+    // open beside it, every soul counted twice in both.
+    if (payload.plugin !== undefined && payload.plugin !== id) return;
     if (typeof payload.seq !== "number") deliver(payload.event, payload.data);
     else if (early) early.push(payload);
     else deliverLogged(payload);
