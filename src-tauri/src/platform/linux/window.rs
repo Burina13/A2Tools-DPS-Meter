@@ -151,7 +151,19 @@ pub fn start_drag(window: &tauri::WebviewWindow) {
     let _ = window.start_dragging();
 }
 
+/// Show a window on top without taking focus from the game. A plain show
+/// maps the window and the window manager activates it as a new window
+/// (KWin did, under XWayland, for each plugin alert), so GTK is told first
+/// not to take focus on map (`_NET_WM_USER_TIME` 0 on X11). Clicking the
+/// window still focuses it.
 pub fn show_on_top_without_focus(window: &tauri::WebviewWindow) {
+    use gtk::prelude::*;
+    let target = window.clone();
+    super::dialog::on_gtk_thread(move || {
+        if let Ok(gtk_window) = target.gtk_window() {
+            gtk_window.set_focus_on_map(false);
+        }
+    });
     let _ = window.show();
     let _ = window.set_always_on_top(true);
 }
