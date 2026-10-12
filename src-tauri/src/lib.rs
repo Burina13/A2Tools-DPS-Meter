@@ -18,6 +18,9 @@ pub mod clock;
 pub mod combat;
 pub mod entity;
 pub mod i18n;
+// Fork: the party upload's per-event sidecar (the data shape is wasm-clean;
+// its file IO is desktop-gated inside the module).
+pub mod party_ext;
 pub mod rederive;
 pub mod supporters;
 

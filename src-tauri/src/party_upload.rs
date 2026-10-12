@@ -163,13 +163,38 @@ pub struct UploadFailure {
     pub retryable: bool,
 }
 
+/// The upload body: the full record, the id → name map (the names the record
+/// already holds — everyone but the local player masked, exactly what History
+/// shows), the uploader's actor id, the damage anchors and — when the fight
+/// was saved by a client this new — the `ext` per-event sidecar
+/// (`party_ext::FightExt`). `ext` is `null` otherwise; the server treats it
+/// as optional, so old clients and old saves keep uploading unchanged.
+fn build_body(
+    record: &FightRecord,
+    uploader_actor_id: Option<i32>,
+    anchors: &[String],
+    ext: Option<crate::party_ext::FightExt>,
+    now_ms: i64,
+) -> serde_json::Value {
+    let names: HashMap<String, String> = record
+        .actors
+        .iter()
+        .map(|a| (a.actor_id.to_string(), a.nickname.clone()))
+        .collect();
+    serde_json::json!({
+        "record": record,
+        "names": names,
+        "uploaderActorId": uploader_actor_id,
+        "anchors": anchors,
+        "ext": ext,
+        "appVersion": crate::entity::fight_record::APP_VERSION,
+        "clientTimeMs": now_ms,
+    })
+}
+
 #[cfg(feature = "online")]
-/// Send one saved fight to the party server.
-///
-/// The body is gzipped JSON: the full record, the id → name map (the names the
-/// record already holds — everyone but the local player masked, exactly what
-/// History shows), the uploader's actor id and the damage anchors. The server
-/// answers 200 with `{ok, encounterId, captur}`.
+/// Send one saved fight to the party server. The server answers 200 with
+/// `{ok, encounterId, captur}`.
 pub async fn upload(
     client: &reqwest::Client,
     app_data_dir: &Path,
@@ -177,20 +202,14 @@ pub async fn upload(
     base_url: &str,
     key: &str,
 ) -> Result<(), UploadFailure> {
-    let names: HashMap<String, String> = record
-        .actors
-        .iter()
-        .map(|a| (a.actor_id.to_string(), a.nickname.clone()))
-        .collect();
     let envelope = crate::share::build_envelope(record, &[]);
-    let body = serde_json::json!({
-        "record": record,
-        "names": names,
-        "uploaderActorId": crate::share::uploader_actor_id(app_data_dir, &record.id),
-        "anchors": envelope.anchors,
-        "appVersion": crate::entity::fight_record::APP_VERSION,
-        "clientTimeMs": crate::clock::now_ms(),
-    });
+    let body = build_body(
+        record,
+        crate::share::uploader_actor_id(app_data_dir, &record.id),
+        &envelope.anchors,
+        crate::party_ext::load(app_data_dir, &record.id),
+        crate::clock::now_ms(),
+    );
     let compressed = crate::share::gzip(body.to_string().as_bytes())
         .map_err(|e| UploadFailure { message: e, retryable: false })?;
 
@@ -280,6 +299,44 @@ mod tests {
         note_failure(&d, "f2", false, 1_000);
         assert!(retries_due(&d, i64::MAX).is_empty());
         assert_eq!(requeue_on_launch(&d), vec!["f2".to_string()]);
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn the_body_carries_ext_when_there_is_one_and_null_when_not() {
+        let r = record("f3", 0, 1_000, false);
+        let holy = build_body(&r, Some(7), &["a".into()], None, 123);
+        assert!(holy["ext"].is_null(), "no sidecar: ext is null, not absent");
+        assert_eq!(holy["uploaderActorId"], serde_json::json!(7));
+        assert_eq!(holy["anchors"], serde_json::json!(["a"]));
+
+        let ext = crate::party_ext::FightExt {
+            v: 1,
+            smrti: vec![(7, 500)],
+            boss_killed: Some(true),
+            ..Default::default()
+        };
+        let with = build_body(&r, None, &[], Some(ext), 123);
+        assert_eq!(with["ext"]["smrti"], serde_json::json!([[7, 500]]));
+        assert_eq!(with["ext"]["bossKilled"], serde_json::json!(true));
+        assert!(with["uploaderActorId"].is_null());
+    }
+
+    #[test]
+    fn the_ext_sidecar_saves_and_loads_next_to_history() {
+        let d = dir("ext");
+        let ext = crate::party_ext::FightExt {
+            v: 1,
+            dmg: vec![(1, 10, 11020000, 300, 1)],
+            ..Default::default()
+        };
+        crate::party_ext::save(&d, "f4", &ext);
+        let back = crate::party_ext::load(&d, "f4").expect("saved sidecar loads");
+        assert_eq!(back.dmg, ext.dmg);
+        assert!(crate::party_ext::load(&d, "missing").is_none());
+        assert!(crate::party_ext::load(&d, "../escape").is_none(), "no path escape");
+        crate::party_ext::save(&d, "empty", &Default::default());
+        assert!(crate::party_ext::load(&d, "empty").is_none(), "an empty ext is not written");
         let _ = std::fs::remove_dir_all(&d);
     }
 

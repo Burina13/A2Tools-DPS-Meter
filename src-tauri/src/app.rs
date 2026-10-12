@@ -350,6 +350,14 @@ fn save_fight_records(app: &tauri::AppHandle, state: &AppState, records: Vec<Fig
     for record in &records {
         let _ = state.fight_history.save_fight(record);
         if !record.is_train {
+            // Fork: the party upload's per-event sidecar, cut from the live
+            // logs now — a later upload could not, the logs reset with zones.
+            let ext = state.data_storage.fight_ext(
+                record.target_id,
+                record.start_time_ms,
+                record.start_time_ms + record.duration_ms,
+            );
+            crate::party_ext::save(&state.app_data_dir, &record.id, &ext);
             if let Err(e) = share::save_slice(&state.app_data_dir, record, &state.data_storage) {
                 // A fight that began before the meter did is normal; anything
                 // else is why an upload will later say no packets were saved.

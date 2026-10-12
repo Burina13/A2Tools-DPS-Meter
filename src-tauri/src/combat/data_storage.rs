@@ -550,6 +550,19 @@ struct Inner {
     /// The class and level your own self record last stated, with the name it
     /// was for, so a character switch does not carry the last one's over.
     self_profile: Option<(String, Option<JobClass>, Option<u32>)>,
+    /// Fork (party upload ext): per-hit player damage — the aggregates keep
+    /// per-hit times but not values. See the `ExtHit` block below Inner.
+    ext_dmg: Vec<ExtHit>,
+    /// Fork: NPC → player hits with the NPC skill code and time — upstream
+    /// folds these into one session-wide `damage_received` per actor.
+    /// `(ts, victim, npc_skill_code, value, flags)` — no target field.
+    ext_taken: Vec<(i64, i32, i32, i64, i64)>,
+    /// Fork: when each entity died (`mark_entity_dead` keeps no time).
+    ext_deaths: Vec<(i64, i32)>,
+    /// Fork: the HP history `set_mob_current_hp` drops: `(ts, entity, hp)`,
+    /// deduplicated against `ext_hp_last` so a repeated reading adds nothing.
+    ext_hp: Vec<(i64, i32, i32)>,
+    ext_hp_last: HashMap<i32, i32>,
 }
 
 #[derive(Default)]
@@ -578,6 +591,63 @@ struct LootIdentity {
     /// The local identity currently in force came from them, not from the
     /// self record.
     applied: bool,
+}
+
+// ── Fork: per-event logs for the party upload ext (`party_ext`) ─────────────
+//
+// The upstream aggregates drop exactly what the party server's timeline
+// needs: per-hit values, per-skill damage taken, player death times and the
+// target's HP history. These session-wide logs keep them, timestamped on the
+// capture clock; `fight_ext` cuts a fight's window out at save time. Bounded
+// by `EXT_CAP` (an evening of combat fits comfortably; a meter left running
+// for days drops its oldest half rather than growing without end).
+
+/// `(ts, actor, target, skill_code, value, flags)` of one hit.
+type ExtHit = (i64, i32, i32, i32, i64, i64);
+
+const EXT_CAP: usize = 400_000;
+
+fn push_ext<T>(log: &mut Vec<T>, event: T) {
+    if log.len() >= EXT_CAP {
+        log.drain(..EXT_CAP / 2);
+    }
+    log.push(event);
+}
+
+/// Both reset paths clear the ext logs with the combat they belong to; the
+/// fights were saved (with their sidecars) before the reset, like the slices.
+fn clear_ext(inner: &mut Inner) {
+    inner.ext_dmg.clear();
+    inner.ext_taken.clear();
+    inner.ext_deaths.clear();
+    inner.ext_hp.clear();
+    inner.ext_hp_last.clear();
+}
+
+/// The `party_ext` flag bits of one damage packet.
+fn ext_flags(pdp: &ParsedDamagePacket) -> i64 {
+    use crate::party_ext as pe;
+    let mut flags = 0;
+    if pdp.is_crit() {
+        flags |= pe::FLAG_CRIT;
+    }
+    if pdp.is_dot() {
+        flags |= pe::FLAG_DOT;
+    }
+    for special in pdp.specials() {
+        flags |= match special {
+            SpecialDamage::Parry => pe::FLAG_PARRY,
+            SpecialDamage::ShieldBlock => pe::FLAG_SHIELD_BLOCK,
+            SpecialDamage::PerfectBlock => pe::FLAG_PERFECT_BLOCK,
+            SpecialDamage::IronWall => pe::FLAG_IRON_WALL,
+            SpecialDamage::Back => pe::FLAG_BACK,
+            SpecialDamage::Frontal => pe::FLAG_FRONTAL,
+            SpecialDamage::Perfect => pe::FLAG_PERFECT,
+            SpecialDamage::Double => pe::FLAG_DOUBLE,
+            SpecialDamage::Critical | SpecialDamage::Regeneration => 0,
+        };
+    }
+    flags
 }
 
 impl DataStorage {
@@ -626,6 +696,11 @@ impl DataStorage {
                 player_servers: HashMap::new(),
                 self_server: 0,
                 self_profile: None,
+                ext_dmg: Vec::new(),
+                ext_taken: Vec::new(),
+                ext_deaths: Vec::new(),
+                ext_hp: Vec::new(),
+                ext_hp_last: HashMap::new(),
             }),
             damage_generation: AtomicI64::new(0),
             last_damage_ms: AtomicI64::new(NEVER_MS),
@@ -1150,6 +1225,11 @@ impl DataStorage {
                     actor_data.damage_received += dmg;
                     actor_data.hits_received += 1;
                 }
+                // Fork: the same hit per-skill and per-time for the party
+                // upload ext — the aggregate above cannot say which boss
+                // skill hit whom when (the server's death recap needs that).
+                push_ext(&mut inner.ext_taken,
+                         (pdp.timestamp(), resolved_target, skill_code, dmg, ext_flags(&pdp)));
             }
             return;
         }
@@ -1290,6 +1370,10 @@ impl DataStorage {
         let mut inner = self.inner.write();
         inner.dead_entity_ids.insert(entity_id);
         inner.hp_floored_ids.remove(&entity_id);
+        // Fork: keep the time too — the party upload ext lists player deaths,
+        // and the set above cannot say when. `now_ms` honours the replay
+        // override, so a replayed capture dates its deaths like its hits.
+        push_ext(&mut inner.ext_deaths, (now_ms(), entity_id));
     }
 
     /// `id` left the world. Only a linked summon is marked: see
@@ -1307,6 +1391,60 @@ impl DataStorage {
 
     pub fn get_dead_entities(&self) -> HashSet<i32> {
         self.inner.read().dead_entity_ids.clone()
+    }
+
+    /// Fork: cut one fight's window out of the per-event logs for the party
+    /// upload ext. Event times come out relative to `start_ms` (the record's
+    /// `start_time_ms`), the convention `hit_timestamps` already uses. Deaths
+    /// and HP readings get a short grace after the window — the killing blow
+    /// is the fight's last hit, so its death packet lands just after it.
+    pub fn fight_ext(&self, target_id: i32, start_ms: i64, end_ms: i64) -> crate::party_ext::FightExt {
+        const GRACE_MS: i64 = 5_000;
+        let inner = self.inner.read();
+        let mut ext = crate::party_ext::FightExt { v: 1, ..Default::default() };
+        for &(ts, actor, target, code, value, flags) in &inner.ext_dmg {
+            if target == target_id && (start_ms..=end_ms).contains(&ts) {
+                let who = summon_resolver::resolve(actor, &inner.summon_storage);
+                ext.dmg.push((who as i64, ts - start_ms, code as i64, value, flags));
+            }
+        }
+        for (&healer, skills) in &inner.heal_storage {
+            if is_mob(&inner, healer) {
+                continue;
+            }
+            for (&(code, is_hot), data) in skills {
+                for &(ts, amount) in &data.ticks {
+                    if (start_ms..=end_ms).contains(&ts) {
+                        let flags = if is_hot { crate::party_ext::FLAG_HOT } else { 0 };
+                        ext.heal.push((healer as i64, ts - start_ms, code as i64, amount, flags));
+                    }
+                }
+            }
+        }
+        for &(ts, victim, code, value, flags) in &inner.ext_taken {
+            if (start_ms..=end_ms).contains(&ts) {
+                ext.taken.push((victim as i64, ts - start_ms, code as i64, value, flags));
+            }
+        }
+        for &(ts, who) in &inner.ext_deaths {
+            if inner.known_player_ids.contains(&who)
+                && (start_ms..=end_ms + GRACE_MS).contains(&ts)
+            {
+                ext.smrti.push((who as i64, ts - start_ms));
+            }
+        }
+        for &(ts, id, hp) in &inner.ext_hp {
+            if id == target_id && (start_ms..=end_ms + GRACE_MS).contains(&ts) {
+                ext.boss_hp.push((ts - start_ms, hp as i64));
+            }
+        }
+        ext.boss_killed = Some(inner.dead_entity_ids.contains(&target_id));
+        for log in [&mut ext.dmg, &mut ext.heal, &mut ext.taken] {
+            log.sort_by_key(|e| e.1);
+        }
+        ext.smrti.sort_by_key(|e| e.1);
+        ext.boss_hp.sort_by_key(|e| e.0);
+        ext
     }
 
     pub fn register_boss(&self, entity_id: i32) {
@@ -1659,6 +1797,12 @@ impl DataStorage {
         }
         let mut inner = self.inner.write();
         inner.mob_current_hp.insert(id, hp);
+        // Fork: the HP history for the party upload ext ("wipe at 23 %" and
+        // the boss-HP axis of the timeline). Only a changed reading counts.
+        if inner.ext_hp_last.get(&id) != Some(&hp) {
+            inner.ext_hp_last.insert(id, hp);
+            push_ext(&mut inner.ext_hp, (now_ms(), id, hp));
+        }
         if hp == 1 {
             inner.hp_floored_ids.insert(id);
         } else if hp > 1
@@ -1779,6 +1923,7 @@ impl DataStorage {
         inner.hp_reset_dummy_ids.clear();
         inner.heal_storage.clear();
         inner.current_target = 0;
+        clear_ext(&mut inner);
     }
 
     /// Clear only the per-segment combat/damage aggregates, preserving player
@@ -1798,6 +1943,7 @@ impl DataStorage {
         inner.hp_reset_dummy_ids.clear();
         inner.heal_storage.clear();
         inner.current_target = 0;
+        clear_ext(&mut inner);
     }
 
     /// Drop every summon link, for a capture from another session (a replay),
@@ -1992,6 +2138,10 @@ fn apply_damage(inner: &mut Inner, pdp: &ParsedDamagePacket) {
     for (i, &flag) in pdp.spec_flags().iter().enumerate() {
         if flag { skill_data.spec_flags[i] = true; }
     }
+    // Fork: the per-hit value for the party upload ext (the aggregates above
+    // keep this hit's time but fold its value into the totals).
+    push_ext(&mut inner.ext_dmg,
+             (timestamp, actor_id, target_id, skill_code, total_dmg as i64, ext_flags(pdp)));
 }
 
 /// Skill codes of the records a Spiritmaster's spirit sends its owner (about
@@ -2399,6 +2549,64 @@ mod tests {
 
     fn who(s: &DataStorage) -> (Option<i64>, Option<String>, bool) {
         (s.local_player_id(), s.local_character_name(), s.local_identity_from_game())
+    }
+
+    #[test]
+    fn the_party_ext_cuts_per_event_data_to_the_fight_window() {
+        use crate::party_ext::{FLAG_CRIT, FLAG_SHIELD_BLOCK};
+        let s = DataStorage::new();
+        // A player (1) hits the boss (9900): a plain hit, a crit, and one hit
+        // on another target (9901) that must stay out of this fight's ext.
+        for (target, ts, dmg, specials) in [
+            (9900, 1_000, 300, vec![]),
+            (9900, 2_000, 500, vec![SpecialDamage::Critical]),
+            (9901, 2_200, 50, vec![]),
+        ] {
+            let mut p = ParsedDamagePacket::new();
+            p.set_actor_id(1001);
+            p.set_target_id(target);
+            p.set_skill_code(11_020_000);
+            p.set_damage(dmg);
+            p.set_timestamp(ts);
+            p.set_specials(specials);
+            s.append_damage(p);
+        }
+        // The boss, a known mob, hits back with an NPC skill through a shield.
+        s.append_mob(9900, 4242);
+        let mut p = ParsedDamagePacket::new();
+        p.set_actor_id(9900);
+        p.set_target_id(1001);
+        p.set_skill_code(1_500_000);
+        p.set_damage(999);
+        p.set_timestamp(2_500);
+        p.set_specials(vec![SpecialDamage::ShieldBlock]);
+        s.append_damage(p);
+        // A heal tick, the boss's HP readings (repeat adds nothing), and the
+        // player's death just after the window (the grace covers it).
+        s.append_heal(1001, 11_990_000, 400, false, 2_600);
+        crate::clock::set_override(Some(2_700));
+        s.set_mob_current_hp(9900, 1_500);
+        s.set_mob_current_hp(9900, 1_500);
+        crate::clock::set_override(Some(3_500));
+        s.mark_entity_dead(1001);
+        s.mark_entity_dead(9900);
+        crate::clock::set_override(None);
+
+        let ext = s.fight_ext(9900, 1_000, 3_000);
+        assert_eq!(ext.dmg, vec![
+            (1001, 0, 11_020_000, 300, 0),
+            (1001, 1_000, 11_020_000, 500, FLAG_CRIT),
+        ], "two hits on this target, times relative to the window");
+        assert_eq!(ext.taken, vec![(1001, 1_500, 1_500_000, 999, FLAG_SHIELD_BLOCK)]);
+        assert_eq!(ext.heal, vec![(1001, 1_600, 11_990_000, 400, 0)]);
+        assert_eq!(ext.smrti, vec![(1001, 2_500)],
+            "the player's death is in (grace), the boss's is not a player");
+        assert_eq!(ext.boss_hp, vec![(1_700, 1_500)], "one reading, deduplicated");
+        assert_eq!(ext.boss_killed, Some(true));
+
+        let cudzi = s.fight_ext(9901, 2_000, 3_000);
+        assert_eq!(cudzi.dmg, vec![(1001, 200, 11_020_000, 50, 0)]);
+        assert_eq!(cudzi.boss_killed, Some(false));
     }
 
     #[test]
