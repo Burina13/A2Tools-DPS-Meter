@@ -25,3 +25,10 @@ impl HotkeyManager {
     }
     pub fn stop(&self) {}
 }
+
+/// The hotkeys helper (`a2tools-hotkeys`) is for Linux, where the portal
+/// cannot be asked from the meter itself; here it has nothing to do.
+pub fn run_helper() -> i32 {
+    println!("error the hotkeys helper is only used on Linux");
+    2
+}

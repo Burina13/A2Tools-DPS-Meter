@@ -100,6 +100,9 @@ jobs:
       - name: Build
         run: |
           npm ci
+          # The hotkeys helper first: tauri.linux.conf.json packs it next to
+          # the meter (platform/linux/hotkeys.rs), without capabilities.
+          cargo build --release --manifest-path src-tauri/Cargo.toml --bin a2tools-hotkeys
           npx tauri build --bundles deb,rpm
       # Tauri's .rpm can only grant capture permission from a %post script,
       # which rpm-ostree (Bazzite and the other image-based Fedoras) runs
@@ -144,6 +147,8 @@ jobs:
           rpm -qp --scripts out/*.rpm
           rpm -qp --filecaps out/*.rpm | grep cap_net_raw
           rpm -qlp out/*.rpm | grep -E '^/usr/(bin|share/applications)/'
+          dpkg-deb --contents out/*.deb | grep -q usr/bin/a2tools-hotkeys
+          rpm -qlp out/*.rpm | grep -qx /usr/bin/a2tools-hotkeys
       - uses: actions/upload-artifact@v7
         with:
           name: deb-rpm-packages
@@ -178,6 +183,9 @@ jobs:
           set -e
           test -x /usr/bin/a2tools-dps-meter
           getcap /usr/bin/a2tools-dps-meter | tee /dev/stderr | grep -q cap_net_raw
+          # The hotkeys helper: present, and without any capability, which is
+          # what lets the desktop portal accept it (#42).
+          test -x /usr/bin/a2tools-hotkeys && test -z "$(getcap /usr/bin/a2tools-hotkeys)"
           if ldd /usr/bin/a2tools-dps-meter | grep 'not found'; then exit 1; fi
           # Under one of the names platform/linux/pcap.rs loads it by.
           ldconfig -p | grep -qE 'libpcap\.so\.(1|0\.8) ' || { echo "libpcap missing"; exit 1; }
@@ -209,6 +217,7 @@ jobs:
             > /etc/yum.repos.d/a2tools.repo
           dnf install -y a2-tools-dps-meter
           getcap /usr/bin/a2tools-dps-meter | grep cap_net_raw
+          test -x /usr/bin/a2tools-hotkeys && test -z "$(getcap /usr/bin/a2tools-hotkeys)"
       - uses: actions/upload-artifact@v7
         with:
           name: rpm-repo
@@ -259,6 +268,7 @@ jobs:
               dnf install -y a2-tools-dps-meter
             fi
             getcap /usr/bin/a2tools-dps-meter | tee /dev/stderr | grep -q cap_net_raw
+            test -x /usr/bin/a2tools-hotkeys && test -z "$(getcap /usr/bin/a2tools-hotkeys)"
             if ldd /usr/bin/a2tools-dps-meter | grep "not found"; then exit 1; fi
             ldconfig -p | grep -qE "libpcap\.so\.(1|0\.8) "
           '

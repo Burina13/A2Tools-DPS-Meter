@@ -386,13 +386,12 @@
       "allTargetsWindow": "En el modo Todos los objetivos, el medidor suma cada objetivo golpeado dentro de este tiempo antes del último golpe.",
       "debugLogging": "Escribe un registro de diagnóstico que el desarrollador puede usar para encontrar problemas.",
       "saveRawPackets": "Graba el tráfico bruto del juego para informes de errores. El registro de depuración se activa con él.",
-      "globalHotkeys": "Las teclas de abajo funcionan con el juego en primer plano. Desactivado, quedan libres para otros programas. En Linux las registra el escritorio, y el medidor le permite revisar su proceso un momento mientras tanto."
+      "globalHotkeys": "Las teclas de abajo funcionan en cualquier momento, incluso con el juego en primer plano. Desactivado, quedan libres para otros programas. En Linux las registra el escritorio, que puede pedirte que las apruebes."
     },
     "globalHotkeys": "Usar atajos de teclado",
     "hotkeyConsent": {
       "title": "¿Activar los atajos de teclado?",
       "desktop": "En Linux, tu escritorio configura los atajos del medidor y puede pedirte que los apruebes.",
-      "process": "Mientras tanto (alrededor de un segundo), el medidor queda tan abierto a otros programas de tu equipo como la mayoría de las aplicaciones lo están siempre. Luego vuelve a su ajuste habitual, más cerrado.",
       "anytime": "Puedes desactivar los atajos en cualquier momento.",
       "confirm": "Activar",
       "cancel": "Ahora no"

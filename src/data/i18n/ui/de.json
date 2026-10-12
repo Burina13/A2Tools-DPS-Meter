@@ -386,13 +386,12 @@
       "allTargetsWindow": "Im Modus „Alle Ziele“ zählt das Meter alle Ziele, die innerhalb dieser Zeit vor dem letzten Treffer getroffen wurden.",
       "debugLogging": "Schreibt ein Diagnoseprotokoll, mit dem der Entwickler Probleme finden kann.",
       "saveRawPackets": "Zeichnet rohen Spielverkehr für Fehlerberichte auf. Das Debug-Protokoll wird mit eingeschaltet.",
-      "globalHotkeys": "Die Tasten unten funktionieren, während das Spiel im Vordergrund ist. Aus: Sie werden für andere Programme freigegeben. Unter Linux registriert der Desktop sie, und das Meter lässt ihn dabei kurz seinen Prozess prüfen."
+      "globalHotkeys": "Die Tasten unten funktionieren überall, auch wenn das Spiel im Vordergrund ist. Aus: Sie werden für andere Programme freigegeben. Unter Linux registriert der Desktop sie und fragt eventuell, ob du sie erlaubst."
     },
     "globalHotkeys": "Tastenkürzel verwenden",
     "hotkeyConsent": {
       "title": "Tastenkürzel einschalten?",
       "desktop": "Unter Linux richtet dein Desktop die Tastenkürzel für das Meter ein und fragt dich eventuell, ob du sie erlaubst.",
-      "process": "Währenddessen (etwa eine Sekunde) ist das Meter für andere Programme auf deinem Computer so offen wie die meisten Apps die ganze Zeit. Danach kehrt es zu seiner üblichen, stärker abgeschotteten Einstellung zurück.",
       "anytime": "Du kannst die Tastenkürzel jederzeit wieder ausschalten.",
       "confirm": "Einschalten",
       "cancel": "Nicht jetzt"

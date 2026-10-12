@@ -12,10 +12,19 @@
 //!
 //! The keys are only suggestions here, so the meter's own Keybinds settings
 //! decide what is suggested; the desktop decides what is bound.
+//!
+//! The portal work runs in a helper process, `a2tools-hotkeys`, never in the
+//! meter. The portal reads a caller's /proc/<pid>/root, and Linux refuses that
+//! to a program lacking the capabilities its target holds: the packaged meter
+//! holds cap_net_raw (for capture) and the portal does not, so every call the
+//! meter made was refused ("Unable to open /proc/<pid>/root", #42), dumpable
+//! or not. The helper is a separate executable without file capabilities, and
+//! a program the meter starts does not inherit the meter's, so the portal
+//! reads it like any app. It reports back on stdout: `status <id> ok|taken`
+//! and `fire <id>`.
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 
 use tracing::{info, warn};
 use zbus::blocking::{Connection, Proxy};
@@ -34,35 +43,28 @@ const RELOAD: &str = "reset";
 const TOGGLE: &str = "toggle";
 const LOCK: &str = "lock";
 
-/// Off until the user turns them on (Settings → Keybinds): registering
-/// makes the process briefly inspectable (`Inspectable`), which a meter
-/// holding cap_net_raw should only do when asked to.
+/// Off until the user turns them on (Settings → Keybinds): the desktop asks
+/// to approve the shortcuts, which should not appear unasked.
 pub const DEFAULT_ON: bool = false;
 
-/// One listener: its stop flag and its portal connection, once bound
-/// (closing it ends the session and the listener's signal stream).
-#[derive(Clone)]
-struct Listener {
-    running: Arc<AtomicBool>,
-    connection: Arc<Mutex<Option<Connection>>>,
-}
+/// The helper's file name, next to the meter's own executable.
+const HELPER: &str = "a2tools-hotkeys";
 
 pub struct HotkeyManager {
-    /// The current listener. Each start makes a new one, so a listener still
-    /// winding down cannot clear the next one's flag or connection.
-    current: Mutex<Option<Listener>>,
+    /// The running helper, if any.
+    child: Mutex<Option<std::process::Child>>,
 }
 
 impl HotkeyManager {
     pub fn new() -> Self {
         Self {
-            current: Mutex::new(None),
+            child: Mutex::new(None),
         }
     }
 
-    /// Bind the three shortcuts and listen for them. The numbers are the
-    /// Win32 modifier flags and virtual-key codes settings store
-    /// (`parse_hotkey_label`); a key of 0 leaves that shortcut out.
+    /// Start the helper with the three shortcuts and act on what it reports.
+    /// The numbers are the Win32 modifier flags and virtual-key codes settings
+    /// store (`parse_hotkey_label`); a key of 0 leaves that shortcut out.
     #[allow(clippy::too_many_arguments)]
     pub fn start(
         &self,
@@ -77,58 +79,128 @@ impl HotkeyManager {
         on_lock: impl Fn() + Send + 'static,
         on_status: impl Fn(&'static str, bool) + Send + 'static,
     ) {
-        let mut current = self.current.lock().unwrap_or_else(|p| p.into_inner());
-        if current.as_ref().is_some_and(|l| l.running.load(Ordering::SeqCst)) {
-            return;
+        use std::io::BufRead;
+        use std::process::{Command, Stdio};
+
+        let mut slot = self.child.lock().unwrap_or_else(|p| p.into_inner());
+        if let Some(child) = slot.as_mut() {
+            if matches!(child.try_wait(), Ok(None)) {
+                return;
+            }
         }
-        let listener = Listener {
-            running: Arc::new(AtomicBool::new(true)),
-            connection: Arc::new(Mutex::new(None)),
-        };
-        *current = Some(listener.clone());
-        drop(current);
-        let wanted: Vec<(&'static str, &'static str, Option<String>)> = [
+        let mut args = Vec::new();
+        for (id, description, mods, vk) in [
             (RELOAD, "Reset the meter", reload_mods, reload_vk),
             (TOGGLE, "Show or hide the meter", toggle_mods, toggle_vk),
             (LOCK, "Turn the click-through lock on or off", lock_mods, lock_vk),
-        ]
-        .into_iter()
-        .filter(|&(_, _, _, vk)| vk != 0)
-        .map(|(id, description, mods, vk)| (id, description, trigger(mods, vk)))
-        .collect();
-
-        let Listener { running, connection: slot } = listener;
-        std::thread::spawn(move || {
-            let status = |id: &str, ok: bool| {
-                if let Some(key) = status_key(id) {
-                    on_status(key, ok);
-                }
-            };
-            let result = listen(&wanted, &slot, &status, |id| match id {
-                RELOAD => on_reload(),
-                TOGGLE => on_toggle(),
-                LOCK => on_lock(),
-                _ => {}
-            });
-            if let Err(e) = result {
-                warn!("Global hotkeys unavailable (no GlobalShortcuts portal?): {e}");
+        ] {
+            if vk != 0 {
+                args.push("--shortcut".to_string());
+                args.push(format!("{id}\t{description}\t{}", trigger(mods, vk).unwrap_or_default()));
             }
-            *slot.lock().unwrap_or_else(|p| p.into_inner()) = None;
-            running.store(false, Ordering::SeqCst);
+        }
+        let path = std::env::current_exe()
+            .ok()
+            .and_then(|exe| exe.parent().map(|dir| dir.join(HELPER)))
+            .filter(|path| path.exists())
+            .unwrap_or_else(|| std::path::PathBuf::from(HELPER));
+        let mut child = match Command::new(&path)
+            .args(&args)
+            // Its stdin is how it learns the meter is gone: it exits at EOF.
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+        {
+            Ok(child) => child,
+            Err(e) => {
+                warn!("Global hotkeys unavailable: cannot start {}: {e}", path.display());
+                return;
+            }
+        };
+        let Some(stdout) = child.stdout.take() else { return };
+        *slot = Some(child);
+        drop(slot);
+
+        std::thread::spawn(move || {
+            for line in std::io::BufReader::new(stdout).lines().map_while(Result::ok) {
+                let mut parts = line.splitn(3, ' ');
+                match (parts.next(), parts.next(), parts.next()) {
+                    (Some("fire"), Some(id), _) => match id {
+                        RELOAD => on_reload(),
+                        TOGGLE => on_toggle(),
+                        LOCK => on_lock(),
+                        _ => {}
+                    },
+                    (Some("status"), Some(id), Some(state)) => {
+                        if let Some(key) = status_key(id) {
+                            on_status(key, state == "ok");
+                        }
+                    }
+                    (Some("error"), _, _) => warn!("Global hotkeys unavailable: {}", &line[6.min(line.len())..]),
+                    _ => info!("Hotkeys helper: {line}"),
+                }
+            }
         });
     }
 
-    /// Stop listening. Closing the connection ends the portal session, so the
-    /// desktop drops the shortcuts. Does not wait: a listener can be waiting
-    /// on a desktop's confirmation dialog.
+    /// Stop the helper. Its portal session ends with it, so the desktop
+    /// drops the shortcuts.
     pub fn stop(&self) {
-        let listener = self.current.lock().unwrap_or_else(|p| p.into_inner()).take();
-        if let Some(listener) = listener {
-            listener.running.store(false, Ordering::SeqCst);
-            let connection = listener.connection.lock().unwrap_or_else(|p| p.into_inner()).take();
-            if let Some(connection) = connection {
-                let _ = connection.close();
-            }
+        let child = self.child.lock().unwrap_or_else(|p| p.into_inner()).take();
+        if let Some(mut child) = child {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+    }
+}
+
+/// The helper's whole life: register the shortcuts given as
+/// `--shortcut "<id>\t<description>\t<trigger>"`, print what happens, and
+/// exit when the meter closes our stdin (or dies). Returns the exit code.
+pub fn run_helper() -> i32 {
+    use std::io::{Read, Write};
+
+    let mut wanted: Vec<(&'static str, &'static str, Option<String>)> = Vec::new();
+    let mut args = std::env::args().skip(1);
+    while let Some(arg) = args.next() {
+        if arg != "--shortcut" {
+            continue;
+        }
+        let Some(spec) = args.next() else { break };
+        let mut fields = spec.splitn(3, '\t');
+        let (Some(id), Some(description)) = (fields.next(), fields.next()) else { continue };
+        let trigger = fields.next().filter(|t| !t.is_empty()).map(str::to_string);
+        // Known ids only: they are what the portal and Hyprland are told.
+        let Some(id) = [RELOAD, TOGGLE, LOCK].into_iter().find(|known| *known == id) else { continue };
+        let description: &'static str = Box::leak(description.to_string().into_boxed_str());
+        wanted.push((id, description, trigger));
+    }
+    if wanted.is_empty() {
+        println!("error no shortcuts given");
+        return 2;
+    }
+
+    // The meter closing our stdin, or exiting, ends us too.
+    std::thread::spawn(|| {
+        let mut sink = [0u8; 64];
+        let mut stdin = std::io::stdin();
+        while matches!(stdin.read(&mut sink), Ok(n) if n > 0) {}
+        std::process::exit(0);
+    });
+
+    let say = |line: String| {
+        let mut out = std::io::stdout().lock();
+        let _ = writeln!(out, "{line}");
+        let _ = out.flush();
+    };
+    let slot = Mutex::new(None);
+    let status = |id: &str, ok: bool| say(format!("status {id} {}", if ok { "ok" } else { "taken" }));
+    match listen(&wanted, &slot, &status, |id| say(format!("fire {id}"))) {
+        Ok(()) => 0,
+        Err(e) => {
+            say(format!("error {e} (no GlobalShortcuts portal?)"));
+            1
         }
     }
 }
@@ -233,15 +305,6 @@ fn listen(
 ) -> zbus::Result<()> {
     let connection = Connection::session()?;
 
-    // The portal reads /proc/<pid>/root to tell a sandboxed app from a host
-    // one, and a process with file capabilities (the packages give the meter
-    // cap_net_raw, for capture) is not dumpable, so its /proc entries belong
-    // to root and the portal refused every call: "Portal operation not
-    // allowed: Unable to open /proc/<pid>/root" (#42). So the meter is made
-    // dumpable for the calls only, and not again once the last is sent:
-    // under a second, never while a desktop's confirmation dialog waits.
-    let mut inspectable = Inspectable::open();
-
     // A host (unsandboxed) app says who it is before any other portal call,
     // so the desktop files its shortcuts under the meter rather than an
     // unnamed app. Portals before 1.19 have no registry: carry on without.
@@ -288,7 +351,7 @@ fn listen(
         "a2t_bind_req",
         "BindShortcuts",
         &(&session_path, shortcuts, "", bind_options),
-        || drop(inspectable.take()),
+        || {},
     )?;
     if code != 0 {
         // 1: the user dismissed the desktop's dialog. Nothing is bound.
@@ -449,33 +512,6 @@ fn proxy<'a>(connection: &Connection, path: &'a str, interface: &'a str) -> zbus
         .interface(interface)?
         .cache_properties(zbus::proxy::CacheProperties::No)
         .build()
-}
-
-/// The process made dumpable while it lives, and made non-dumpable again when
-/// dropped. `None` when it already was dumpable (no file capabilities, as
-/// when built from source and run as yourself): nothing to undo then.
-struct Inspectable;
-
-impl Inspectable {
-    fn open() -> Option<Self> {
-        // SAFETY: prctl with these options only reads or sets this
-        // process's dumpable flag.
-        unsafe {
-            if libc::prctl(libc::PR_GET_DUMPABLE, 0, 0, 0, 0) != 0 {
-                return None;
-            }
-            (libc::prctl(libc::PR_SET_DUMPABLE, 1, 0, 0, 0) == 0).then_some(Inspectable)
-        }
-    }
-}
-
-impl Drop for Inspectable {
-    fn drop(&mut self) {
-        // SAFETY: as above.
-        unsafe {
-            libc::prctl(libc::PR_SET_DUMPABLE, 0, 0, 0, 0);
-        }
-    }
 }
 
 /// Call a portal method that answers through a Request object, and wait for

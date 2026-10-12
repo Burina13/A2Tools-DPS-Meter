@@ -386,13 +386,12 @@
       "allTargetsWindow": "En mode Toutes les cibles, le compteur additionne chaque cible touchée dans ce délai avant le dernier coup.",
       "debugLogging": "Écrit un journal de diagnostic que le développeur peut utiliser pour trouver les problèmes.",
       "saveRawPackets": "Enregistre le trafic brut du jeu pour les rapports de bug. Le journal de débogage s'active avec.",
-      "globalHotkeys": "Les touches ci-dessous fonctionnent quand le jeu est au premier plan. Désactivé, elles sont libérées pour d'autres programmes. Sous Linux, le bureau les enregistre, et le compteur le laisse brièvement vérifier son processus pendant ce temps."
+      "globalHotkeys": "Les touches ci-dessous fonctionnent partout, même quand le jeu est au premier plan. Désactivé, elles sont libérées pour d'autres programmes. Sous Linux, le bureau les enregistre et peut vous demander de les approuver."
     },
     "globalHotkeys": "Utiliser les raccourcis",
     "hotkeyConsent": {
       "title": "Activer les raccourcis ?",
       "desktop": "Sous Linux, votre bureau configure les raccourcis du compteur et peut vous demander de les approuver.",
-      "process": "Pendant ce temps (environ une seconde), le compteur est aussi ouvert aux autres programmes de votre ordinateur que la plupart des applications le sont en permanence. Ensuite, il revient à son réglage habituel, plus verrouillé.",
       "anytime": "Vous pouvez désactiver les raccourcis à tout moment.",
       "confirm": "Activer",
       "cancel": "Pas maintenant"

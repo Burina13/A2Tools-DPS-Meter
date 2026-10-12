@@ -2652,9 +2652,9 @@ class DpsApp {
         apply(on);
         this.safeSetSetting(this.storageKeys.globalHotkeys, String(on));
       };
-      // On Linux, turning them on first says what registering involves (the
-      // meter is briefly inspectable, platform/linux/hotkeys.rs); nothing is
-      // registered until the user goes ahead.
+      // On Linux, turning them on first says that the desktop will register
+      // them and may ask to approve them; nothing is registered until the
+      // user goes ahead.
       const consent = document.querySelector(".hotkeyConsent");
       const closeConsent = () => {
         if (!consent) return;

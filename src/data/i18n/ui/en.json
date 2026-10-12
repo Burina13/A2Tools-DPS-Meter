@@ -398,13 +398,12 @@
       "allTargetsWindow": "In All Targets mode, the meter adds up every target hit within this time of the latest hit.",
       "debugLogging": "Writes a diagnostic log the developer can use to track down problems.",
       "saveRawPackets": "Records raw game traffic for bug reports. Debug logging turns on with it.",
-      "globalHotkeys": "The keys below work anywhere, even while the game is in front. Off, they are released for other programs. On Linux your desktop registers them, and the meter lets it check the meter's process for a moment while it does."
+      "globalHotkeys": "The keys below work anywhere, even while the game is in front. Off, they are released for other programs. On Linux your desktop registers them and may ask you to approve them."
     },
     "globalHotkeys": "Use keybinds",
     "hotkeyConsent": {
       "title": "Turn on keybinds?",
       "desktop": "On Linux, your desktop sets up keybinds for the meter, and it may ask you to approve them.",
-      "process": "While it does (about a second), the meter is as open to other programs on your computer as most apps are all the time. Then it goes back to its usual, more locked-down setting.",
       "anytime": "You can turn keybinds off at any time.",
       "confirm": "Turn on",
       "cancel": "Not now"
