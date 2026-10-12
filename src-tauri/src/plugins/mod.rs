@@ -744,20 +744,43 @@ pub fn plugin_storage_set(app: tauri::AppHandle, window: tauri::WebviewWindow, k
 const SDK: &str = include_str!("a2.js");
 
 /// Serve `/<id>/<path>` from that plugin's folder, and `/_sdk/a2.js`.
+/// The content policy for a plugin's files: its own folder and the SDK, and
+/// nothing from anywhere else (no network at all).
+///
+/// The sources are named outright. A plugin page runs in a sandboxed frame,
+/// whose origin is opaque, and WebKit (the Linux webview) matches `'self'`
+/// against that opaque origin, so with `'self'` alone it refused the page's
+/// own scripts and styles and plugins showed up unstyled and empty (2.0.60).
+/// Chromium (WebView2) matches `'self'` against the URL instead. On Linux the
+/// scheme itself is allowed too, in case WebKit does not match a path on a
+/// custom scheme: that lets a plugin load another plugin's files, which gives
+/// it nothing (each runs in the same sandbox, with only its own permissions).
+fn content_policy(id: &str) -> String {
+    let base = if cfg!(windows) { "http://a2plugin.localhost" } else { "a2plugin://localhost" };
+    let mut own = format!("'self' {base}/_sdk/a2.js");
+    if valid_id(id) {
+        own.push_str(&format!(" {base}/{id}/"));
+    }
+    if !cfg!(windows) {
+        own.push_str(" a2plugin:");
+    }
+    format!(
+        "default-src 'none'; script-src {own}; style-src {own} 'unsafe-inline'; img-src {own} data:;          font-src {own} data:; connect-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'"
+    )
+}
+
 pub fn serve(app: &tauri::AppHandle, path: &str) -> tauri::http::Response<Vec<u8>> {
+    let path = percent_decode(path.trim_start_matches('/'));
+    let policy = content_policy(path.split('/').next().unwrap_or(""));
     let respond = |status: u16, kind: &str, body: Vec<u8>| {
         tauri::http::Response::builder()
             .status(status)
             .header("Content-Type", kind)
-            .header(
-                "Content-Security-Policy",
-                "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'",
-            )
+            .header("Content-Security-Policy", policy.as_str())
             .header("X-Content-Type-Options", "nosniff")
             .body(body)
             .unwrap_or_default()
     };
-    let path = percent_decode(path.trim_start_matches('/'));
     if path == "_sdk/a2.js" {
         return respond(200, "text/javascript; charset=utf-8", SDK.as_bytes().to_vec());
     }
@@ -805,4 +828,24 @@ fn percent_decode(s: &str) -> String {
         i += 1;
     }
     String::from_utf8_lossy(&out).into_owned()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::content_policy;
+
+    #[test]
+    fn the_policy_names_the_plugins_own_files() {
+        let base = if cfg!(windows) { "http://a2plugin.localhost" } else { "a2plugin://localhost" };
+        let policy = content_policy("pet-souls");
+        for directive in ["script-src", "style-src"] {
+            let sources = policy.split(';').find(|d| d.trim().starts_with(directive)).unwrap();
+            // Not 'self' alone: WebKit refuses everything in a sandboxed frame then.
+            assert!(sources.contains(&format!("{base}/pet-souls/")), "{sources}");
+            assert!(sources.contains(&format!("{base}/_sdk/a2.js")), "{sources}");
+        }
+        assert!(policy.contains("connect-src 'none'"));
+        // A path that is not a plugin id adds no folder.
+        assert!(!content_policy("../x").contains("/../x/"));
+    }
 }
