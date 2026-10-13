@@ -347,6 +347,15 @@
         "allTargets": "All targets combined"
       }
     },
+    "updateRate": {
+      "label": "Meter update rate",
+      "options": {
+        "100": "0.1 s",
+        "200": "0.2 s (default)",
+        "250": "0.25 s",
+        "500": "0.5 s"
+      }
+    },
     "allTargetsWindow": {
       "label": "All Targets time window",
       "options": {
@@ -436,6 +445,7 @@
       "textureOffset": "Each bar starts its texture at a different place, so the bars don't all look alike.",
       "trainingMode": "In Train mode, which dummies the Details window shows: all of them together, or only the one you hit hardest.",
       "allTargetsWindow": "In All Targets mode, the meter adds up every target hit within this time of the latest hit.",
+      "updateRate": "How often the meter's numbers refresh. Faster shows hits sooner but uses more CPU.",
       "debugLogging": "Writes a diagnostic log the developer can use to track down problems.",
       "saveRawPackets": "Records raw game traffic for bug reports. Debug logging turns on with it.",
       "globalHotkeys": "The keys below work anywhere, even while the game is in front. Off, they are released for other programs. On Linux your desktop registers them and may ask you to approve them.",

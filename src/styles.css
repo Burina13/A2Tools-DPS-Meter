@@ -571,7 +571,9 @@ body.linuxOverlay .meter {
   width: 100%;
   background: linear-gradient(180deg, #47d47d 0%, #2ea75f 100%);
   opacity: var(--meter-fill-opacity, 0.8);
-  transition: width 320ms cubic-bezier(0.22, 1, 0.36, 1), background 300ms ease;
+  /* A stepped glide: the bar updates ten times a second, and a smooth glide
+     redrew it every frame all fight long; a few steps cost a few redraws. */
+  transition: width var(--bar-glide, 200ms) steps(5, end), background 300ms ease;
 }
 .bossHpFill::after {
   content: "";
@@ -663,7 +665,8 @@ body.linuxOverlay .meter {
   /* Settings' bar colour strength (core.js applyMeterFillSaturation). */
   filter: saturate(var(--meter-fill-saturation, 1)) brightness(var(--meter-fill-brightness, 1));
   background: var(--bar-base);
-  transition: width 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  /* A stepped glide (see .bossHpFill). */
+  transition: width var(--bar-glide, 200ms) steps(5, end);
 }
 /* The lit edge is the part you actually read at a glance. When the tint
    washes out over bright terrain or at low panel opacity, the edge still

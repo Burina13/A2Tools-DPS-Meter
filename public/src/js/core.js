@@ -1,6 +1,8 @@
 const SETTING_CHOICES = {
   defaultMeterMode: { allowed: ["bossTargets", "lastHitByMe", "allTargets", "trainTargets"], fallback: "bossTargets" },
   allTargetsWindowMs: { allowed: ["30000", "60000", "120000", "180000", "300000"], fallback: "120000" },
+  // How often the backend sends DPS (app.rs DPS_RATES_MS).
+  updateRateMs: { allowed: ["100", "200", "250", "500"], fallback: "200" },
   trainSelectionMode: { allowed: ["all", "highestDamage"], fallback: "all" },
   // The figure beside each player's name, in the meter and in Details.
   partyStat: { allowed: ["combatPower", "gearScore", "off"], fallback: "combatPower" },
@@ -66,6 +68,7 @@ class DpsApp {
       userName: "dpsMeter.userName",
       onlyShowUser: "dpsMeter.onlyShowUser",
       allTargetsWindowMs: "dpsMeter.allTargetsWindowMs",
+      updateRateMs: "dpsMeter.updateRateMs",
       trainSelectionMode: "dpsMeter.trainSelectionMode",
       partyStat: "dpsMeter.partyStat",
       barTexture: "dpsMeter.barTexture",
@@ -2437,6 +2440,8 @@ class DpsApp {
     this.localActorIdInput = document.querySelector(".localActorIdInput");
     this.allTargetsWindowDropdownBtn = document.querySelector(".allTargetsWindowDropdownBtn");
     this.allTargetsWindowDropdownMenu = document.querySelector(".allTargetsWindowDropdownMenu");
+    this.updateRateDropdownBtn = document.querySelector(".updateRateDropdownBtn");
+    this.updateRateDropdownMenu = document.querySelector(".updateRateDropdownMenu");
     this.trainSelectionModeDropdownBtn = document.querySelector(".trainSelectionModeDropdownBtn");
     this.partyStatDropdownBtn = document.querySelector(".partyStatDropdownBtn");
     this.barTextureDropdownBtn = document.querySelector(".barTextureDropdownBtn");
@@ -2643,6 +2648,8 @@ class DpsApp {
       });
     }
 
+    this.settingsSelections.updateRateMs = pickSettingChoice("updateRateMs", this.safeGetSetting(this.storageKeys.updateRateMs));
+    this.applyUpdateRate(this.settingsSelections.updateRateMs);
     const selectedWindow = pickSettingChoice("allTargetsWindowMs", storedAllTargetsWindowMs);
     this.settingsSelections.allTargetsWindowMs = selectedWindow;
     if (syncBackend) {
@@ -3497,6 +3504,25 @@ class DpsApp {
             textEl.style.textShadow = colors.nameShadow;
           }
         },
+      }
+    );
+
+    setupDropdown(
+      this.updateRateDropdownBtn,
+      this.updateRateDropdownMenu,
+      [
+        { value: "100", label: this.i18n?.t("settings.updateRate.options.100", "0.1 s") },
+        { value: "200", label: this.i18n?.t("settings.updateRate.options.200", "0.2 s (default)") },
+        { value: "250", label: this.i18n?.t("settings.updateRate.options.250", "0.25 s") },
+        { value: "500", label: this.i18n?.t("settings.updateRate.options.500", "0.5 s") },
+      ],
+      this.settingsSelections.updateRateMs,
+      (value) => {
+        if (!value) return;
+        this.settingsSelections.updateRateMs = value;
+        this.applyUpdateRate(value);
+        // The backend reads it from the settings on its next update.
+        this.safeSetSetting(this.storageKeys.updateRateMs, value);
       }
     );
 
@@ -4979,6 +5005,13 @@ class DpsApp {
     else delete data.barTexture;
   }
 
+  // The bars glide to a new length in five steps (styles.css), over the
+  // time between updates or 200 ms, whichever is shorter.
+  applyUpdateRate(ms) {
+    const glide = Math.min(Number(ms) || 200, 200);
+    document.documentElement?.style.setProperty("--bar-glide", `${glide}ms`);
+  }
+
   // "Offset textures": each bar starts its texture at a place of its own
   // (meter.js sets --tex-x per row; styles.css uses it with this on).
   setTextureOffset(on) {
@@ -5110,6 +5143,7 @@ class DpsApp {
       defaultMeterMode: "defaultMeterMode",
       trainSelectionMode: "trainSelectionMode",
       allTargetsWindowMs: "allTargetsWindow",
+      updateRateMs: "updateRate",
       partyStat: "partyStat",
       barTexture: "barTexture",
     };
@@ -5127,6 +5161,8 @@ class DpsApp {
         this.applyPartyStat(normalized);
       } else if (name === "barTexture") {
         this.applyBarTexture(normalized);
+      } else if (name === "updateRateMs") {
+        this.applyUpdateRate(normalized);
       }
       this.syncSettingsDropdownSelection(this[`${control}DropdownBtn`], this[`${control}DropdownMenu`], normalized);
       return;

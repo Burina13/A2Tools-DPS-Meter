@@ -337,6 +337,15 @@
         "allTargets": "Todos os alvos combinados"
       }
     },
+    "updateRate": {
+      "label": "Frequência de atualização",
+      "options": {
+        "100": "0,1 s",
+        "200": "0,2 s (padrão)",
+        "250": "0,25 s",
+        "500": "0,5 s"
+      }
+    },
     "allTargetsWindow": {
       "label": "Janela de todos os alvos",
       "options": {
@@ -424,6 +433,7 @@
       "textureOffset": "Cada barra começa a textura num ponto diferente, para que não fiquem todas iguais.",
       "trainingMode": "No modo treino, quais bonecos a janela de detalhes mostra: todos juntos ou só o que você mais acerta.",
       "allTargetsWindow": "No modo Todos os alvos, o medidor soma cada alvo atingido dentro deste tempo antes do último golpe.",
+      "updateRate": "Com que frequência os números do medidor atualizam. Mais rápido mostra os golpes antes, mas usa mais CPU.",
       "debugLogging": "Grava um registro de diagnóstico que o desenvolvedor pode usar para encontrar problemas.",
       "saveRawPackets": "Grava o tráfego bruto do jogo para relatórios de erro. O registro de depuração liga junto.",
       "globalHotkeys": "As teclas abaixo funcionam em qualquer lugar, mesmo com o jogo em primeiro plano. Desligado, ficam livres para outros programas. No Linux, o ambiente de trabalho as registra e pode pedir que você as aprove.",

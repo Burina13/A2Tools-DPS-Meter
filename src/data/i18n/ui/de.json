@@ -337,6 +337,15 @@
         "allTargets": "Alle Ziele zusammen"
       }
     },
+    "updateRate": {
+      "label": "Aktualisierungsrate",
+      "options": {
+        "100": "0,1 s",
+        "200": "0,2 s (Standard)",
+        "250": "0,25 s",
+        "500": "0,5 s"
+      }
+    },
     "allTargetsWindow": {
       "label": "Zeitfenster für alle Ziele",
       "options": {
@@ -424,6 +433,7 @@
       "textureOffset": "Jeder Balken beginnt seine Textur an einer anderen Stelle, damit nicht alle gleich aussehen.",
       "trainingMode": "Im Trainingsmodus: welche Puppen das Detailfenster zeigt – alle zusammen oder nur die, die du am stärksten triffst.",
       "allTargetsWindow": "Im Modus „Alle Ziele“ zählt das Meter alle Ziele, die innerhalb dieser Zeit vor dem letzten Treffer getroffen wurden.",
+      "updateRate": "Wie oft sich die Zahlen des Meters aktualisieren. Schneller zeigt Treffer früher, braucht aber mehr CPU.",
       "debugLogging": "Schreibt ein Diagnoseprotokoll, mit dem der Entwickler Probleme finden kann.",
       "saveRawPackets": "Zeichnet rohen Spielverkehr für Fehlerberichte auf. Das Debug-Protokoll wird mit eingeschaltet.",
       "globalHotkeys": "Die Tasten unten funktionieren überall, auch wenn das Spiel im Vordergrund ist. Aus: Sie werden für andere Programme freigegeben. Unter Linux registriert der Desktop sie und fragt eventuell, ob du sie erlaubst.",

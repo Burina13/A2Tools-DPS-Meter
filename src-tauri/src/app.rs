@@ -557,10 +557,20 @@ fn get_settings(state: tauri::State<'_, AppState>) -> std::collections::HashMap<
     state.settings.get_all()
 }
 
-/// How often the DPS update is checked for a change.
-const DPS_TICK_MS: u64 = 100;
-/// An unchanged DPS update is sent again after this many ticks (2 s).
-const DPS_RESEND_TICKS: u64 = 20;
+/// How often the DPS update is checked for a change: Settings > Advanced,
+/// "Meter update rate", one of `DPS_RATES_MS`.
+const DPS_RATE_KEY: &str = "dpsMeter.updateRateMs";
+const DPS_RATE_DEFAULT_MS: u64 = 200;
+const DPS_RATES_MS: [u64; 4] = [100, 200, 250, 500];
+/// An unchanged DPS update is sent again after this long.
+const DPS_RESEND: Duration = Duration::from_secs(2);
+
+fn dps_rate_ms(settings: &Settings) -> u64 {
+    settings.get(DPS_RATE_KEY)
+        .and_then(|v| v.trim().parse::<u64>().ok())
+        .filter(|ms| DPS_RATES_MS.contains(ms))
+        .unwrap_or(DPS_RATE_DEFAULT_MS)
+}
 
 /// Store a setting and tell every window about it.
 ///
@@ -2856,25 +2866,31 @@ pub fn run() {
             });
             apply_global_hotkeys(app.handle());
 
-            // DPS to the windows, checked every DPS_TICK_MS and sent when it
-            // changed (and every DPS_RESEND_TICKS when it didn't), so a hit
-            // shows within a tenth of a second. Without new damage the
+            // DPS to the windows, checked at the meter update rate (200 ms
+            // unless changed in Settings > Advanced) and sent when it changed
+            // (and every DPS_RESEND when it didn't). Without new damage the
             // calculator returns its cached result; with it, replaying a
-            // 36-minute fight took at most 0.86 ms per update.
+            // 36-minute fight took at most 0.86 ms per update. Most of the
+            // cost is the windows redrawing, which is why the rate is a choice.
             let handle_dps = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 let handle = handle_dps;
-                let mut interval = tokio::time::interval(Duration::from_millis(DPS_TICK_MS));
+                let mut rate_ms = DPS_RATE_DEFAULT_MS;
+                let mut interval = tokio::time::interval(Duration::from_millis(rate_ms));
                 interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-                let mut tick_count: u64 = 0;
-                // The last update sent, and the tick it went: an unchanged one
-                // is sent again only every DPS_RESEND_TICKS.
+                // The last update sent, and when: an unchanged one is sent
+                // again only every DPS_RESEND.
                 let mut last_dps: Option<serde_json::Value> = None;
-                let mut last_dps_tick: u64 = 0;
+                let mut last_dps_at = std::time::Instant::now();
                 loop {
                     interval.tick().await;
-                    tick_count += 1;
                     if let Some(state) = handle.try_state::<AppState>() {
+                        let wanted = dps_rate_ms(&state.settings);
+                        if wanted != rate_ms {
+                            rate_ms = wanted;
+                            interval = tokio::time::interval(Duration::from_millis(rate_ms));
+                            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+                        }
                         let t0 = std::time::Instant::now();
                         let calculation_handle = handle.clone();
                         let result = crate::blocking::DPS_TICK.run(move || {
@@ -2894,10 +2910,10 @@ pub fn run() {
                                 // it changed, else every few seconds, and a window
                                 // asks for the current one as it opens.
                                 let dps = serde_json::to_value(&dps).unwrap_or_default();
-                                if last_dps.as_ref() != Some(&dps) || tick_count - last_dps_tick >= DPS_RESEND_TICKS {
+                                if last_dps.as_ref() != Some(&dps) || last_dps_at.elapsed() >= DPS_RESEND {
                                     let _ = handle.emit("dps-update", &dps);
                                     last_dps = Some(dps);
-                                    last_dps_tick = tick_count;
+                                    last_dps_at = std::time::Instant::now();
                                 }
                                 let emit_ms = emitting.elapsed().as_millis();
                                 let total_ms = t0.elapsed().as_millis();

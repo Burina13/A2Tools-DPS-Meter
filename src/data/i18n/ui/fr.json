@@ -337,6 +337,15 @@
         "allTargets": "Toutes les cibles combinées"
       }
     },
+    "updateRate": {
+      "label": "Fréquence de mise à jour",
+      "options": {
+        "100": "0,1 s",
+        "200": "0,2 s (par défaut)",
+        "250": "0,25 s",
+        "500": "0,5 s"
+      }
+    },
     "allTargetsWindow": {
       "label": "Fenêtre de toutes les cibles",
       "options": {
@@ -424,6 +433,7 @@
       "textureOffset": "Chaque barre commence sa texture à un endroit différent, pour qu'elles ne se ressemblent pas toutes.",
       "trainingMode": "En mode entraînement, quels mannequins la fenêtre Détails affiche : tous ensemble, ou seulement celui que tu frappes le plus.",
       "allTargetsWindow": "En mode Toutes les cibles, le compteur additionne chaque cible touchée dans ce délai avant le dernier coup.",
+      "updateRate": "À quelle fréquence les chiffres du compteur se rafraîchissent. Plus rapide affiche les coups plus tôt mais utilise plus de CPU.",
       "debugLogging": "Écrit un journal de diagnostic que le développeur peut utiliser pour trouver les problèmes.",
       "saveRawPackets": "Enregistre le trafic brut du jeu pour les rapports de bug. Le journal de débogage s'active avec.",
       "globalHotkeys": "Les touches ci-dessous fonctionnent partout, même quand le jeu est au premier plan. Désactivé, elles sont libérées pour d'autres programmes. Sous Linux, le bureau les enregistre et peut vous demander de les approuver.",
