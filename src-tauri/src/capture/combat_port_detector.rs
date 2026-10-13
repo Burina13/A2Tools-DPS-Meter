@@ -154,6 +154,17 @@ impl CombatPortDetector {
         }
     }
 
+    /// The game's traffic now arrives on another device, on the same port
+    /// (a VPN connected or dropped, or the route for an instance server
+    /// differs): keep the port, follow the device.
+    pub fn move_device(&self, device: &str) {
+        let mut inner = self.inner.lock();
+        if inner.locked_port.is_some() {
+            info!("Combat device moved: {:?} -> {}", inner.locked_device, device);
+            inner.locked_device = Some(device.trim().to_string());
+        }
+    }
+
     pub fn mark_packet_parsed(&self) {
         self.last_parsed_at_ms.store(now_ms(), Ordering::Relaxed);
     }
