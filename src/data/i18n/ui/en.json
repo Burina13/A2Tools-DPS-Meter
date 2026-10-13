@@ -110,7 +110,8 @@
       "selfHealing": "Self-Healing",
       "multiHitDamage": "Multi-Hit Damage",
       "multiHitHits": "Multi-Hits",
-      "maxHp": "Max HP"
+      "maxHp": "Max HP",
+      "deaths": "Deaths"
     },
     "titleFor": "for",
     "titleVs": "vs",
@@ -167,7 +168,10 @@
     "healTimingNote": "No heal timing for this fight (recorded by an older version).",
     "chart": {
       "bossHp": "Boss HP",
-      "ping": "Ping"
+      "ping": "Ping",
+      "death": "Death",
+      "died": "died at",
+      "downFor": "down for"
     },
     "hpsChart": "Healing per second",
     "sectionChart": "Chart",
@@ -287,6 +291,11 @@
       "label": "Colour theme",
       "options": {
         "aion2": "AION2",
+        "aion2Classes": "AION2 (class colours)",
+        "aion2ClassesVivid": "AION2 (class colours, vivid)",
+        "aion2Spectrum": "Spectrum",
+        "aion2Aurora": "Aurora",
+        "aion2Sunset": "Sunset",
         "asmodian": "Asmodian",
         "cogni": "Cogni",
         "elyos": "Elyos",
@@ -298,6 +307,23 @@
         "varian": "Varian"
       }
     },
+    "textureOffset": "Offset textures",
+    "barTexture": {
+      "label": "Bar texture",
+      "supportersOnly": "For supporters: sign in above, under A2 Tools account, to use it.",
+      "options": {
+        "none": "None",
+        "flames": "Flames",
+        "crystal": "Frost crystal",
+        "glacier": "Glacier",
+        "feathers": "Feathers",
+        "wing": "Wing",
+        "storm": "Storm",
+        "nebula": "Nebula",
+        "galaxy": "Galaxy",
+        "aura": "Aura"
+      }
+    },
     "language": {
       "label": "Language"
     },
@@ -307,6 +333,8 @@
     "meterOpacity": {
       "label": "Bar opacity"
     },
+    "barPreview": "Preview",
+    "meterSaturation": {"label": "Bar colour strength"},
     "bossNameSize": {
       "label": "Title size"
     },
@@ -317,6 +345,15 @@
         "mostRecent": "Most recently damaged",
         "lastHitByMe": "Last hit by me",
         "allTargets": "All targets combined"
+      }
+    },
+    "updateRate": {
+      "label": "Meter update rate",
+      "options": {
+        "100": "0.1 s",
+        "200": "0.2 s (default)",
+        "250": "0.25 s",
+        "500": "0.5 s"
       }
     },
     "allTargetsWindow": {
@@ -340,6 +377,14 @@
     },
     "defaultMeterMode": {
       "label": "Starting target mode"
+    },
+    "partyStat": {
+      "label": "Beside player names",
+      "options": {
+        "combatPower": "Combat power",
+        "gearScore": "Gear score",
+        "off": "Off"
+      }
     },
     "trainingMode": {
       "label": "Details in Train mode",
@@ -393,9 +438,14 @@
       "showLockBtn": "A button that makes the meter ignore the mouse, so clicks go through to the game.",
       "windowOpacity": "How see-through the meter's background is. Bars and text stay as they are.",
       "meterOpacity": "How solid the coloured damage bars are.",
+      "meterSaturation": "How strong the bars' colours are: lower for softer, higher for more vivid.",
       "bossNameSize": "Size of the boss or target name above the bars.",
+      "partyStat": "The number beside each player's name, in the meter and in Details. Only your own party's members have one.",
+      "barTexture": "A pattern over the meter's bars. A thank-you for supporting A2 Tools.",
+      "textureOffset": "Each bar starts its texture at a different place, so the bars don't all look alike.",
       "trainingMode": "In Train mode, which dummies the Details window shows: all of them together, or only the one you hit hardest.",
       "allTargetsWindow": "In All Targets mode, the meter adds up every target hit within this time of the latest hit.",
+      "updateRate": "How often the meter's numbers refresh. Faster shows hits sooner but uses more CPU.",
       "debugLogging": "Writes a diagnostic log the developer can use to track down problems.",
       "saveRawPackets": "Records raw game traffic for bug reports. Debug logging turns on with it.",
       "globalHotkeys": "The keys below work anywhere, even while the game is in front. Off, they are released for other programs. On Linux your desktop registers them and may ask you to approve them.",

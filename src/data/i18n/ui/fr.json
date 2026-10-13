@@ -105,7 +105,8 @@
       "selfHealing": "Auto-soin",
       "multiHitDamage": "Dégâts des coups multiples",
       "multiHitHits": "Coups multiples",
-      "maxHp": "PV max."
+      "maxHp": "PV max.",
+      "deaths": "Morts"
     },
     "titleFor": "pour",
     "titleVs": "contre",
@@ -162,7 +163,10 @@
     "healTimingNote": "Pas de moments de soin pour ce combat (enregistré par une version plus ancienne).",
     "chart": {
       "bossHp": "PV du boss",
-      "ping": "Ping"
+      "ping": "Ping",
+      "death": "Mort",
+      "died": "mort à",
+      "downFor": "à terre"
     },
     "hpsChart": "Soins par seconde",
     "sectionChart": "Graphique",
@@ -277,6 +281,11 @@
       "label": "Thème de couleurs",
       "options": {
         "aion2": "AION2",
+        "aion2Classes": "AION2 (couleurs de classe)",
+        "aion2ClassesVivid": "AION2 (couleurs de classe, vives)",
+        "aion2Spectrum": "Spectre",
+        "aion2Aurora": "Aurore",
+        "aion2Sunset": "Coucher de soleil",
         "asmodian": "Asmodian",
         "cogni": "Cogni",
         "elyos": "Elyos",
@@ -288,6 +297,23 @@
         "varian": "Varian"
       }
     },
+    "textureOffset": "Décaler les textures",
+    "barTexture": {
+      "label": "Texture des barres",
+      "supportersOnly": "Pour les soutiens : connectez-vous ci-dessus, dans Compte A2 Tools, pour l'utiliser.",
+      "options": {
+        "none": "Aucune",
+        "flames": "Flammes",
+        "crystal": "Cristal de givre",
+        "glacier": "Glacier",
+        "feathers": "Plumes",
+        "wing": "Aile",
+        "storm": "Tempête",
+        "nebula": "Nébuleuse",
+        "galaxy": "Galaxie",
+        "aura": "Aura"
+      }
+    },
     "language": {
       "label": "Langue"
     },
@@ -297,6 +323,8 @@
     "meterOpacity": {
       "label": "Opacité des barres"
     },
+    "barPreview": "Aperçu",
+    "meterSaturation": {"label": "Intensité des couleurs"},
     "bossNameSize": {
       "label": "Taille du titre"
     },
@@ -307,6 +335,15 @@
         "mostRecent": "Endommagée le plus récemment",
         "lastHitByMe": "Dernière frappée par moi",
         "allTargets": "Toutes les cibles combinées"
+      }
+    },
+    "updateRate": {
+      "label": "Fréquence de mise à jour",
+      "options": {
+        "100": "0,1 s",
+        "200": "0,2 s (par défaut)",
+        "250": "0,25 s",
+        "500": "0,5 s"
       }
     },
     "allTargetsWindow": {
@@ -330,6 +367,14 @@
     },
     "defaultMeterMode": {
       "label": "Mode de cible au démarrage"
+    },
+    "partyStat": {
+      "label": "À côté des noms",
+      "options": {
+        "combatPower": "Puissance de combat",
+        "gearScore": "Score d'équipement",
+        "off": "Désactivé"
+      }
     },
     "trainingMode": {
       "label": "Détails en mode entraînement",
@@ -381,9 +426,14 @@
       "showLockBtn": "Un bouton qui fait ignorer la souris au compteur, pour que les clics passent au jeu.",
       "windowOpacity": "La transparence du fond du compteur. Les barres et le texte ne changent pas.",
       "meterOpacity": "L'opacité des barres de dégâts colorées.",
+      "meterSaturation": "L'intensité des couleurs des barres : plus bas pour plus doux, plus haut pour plus vif.",
       "bossNameSize": "Taille du nom du boss ou de la cible au-dessus des barres.",
+      "partyStat": "Le nombre à côté du nom de chaque joueur, dans le compteur et dans les détails. Seuls les membres de votre groupe en ont un.",
+      "barTexture": "Un motif sur les barres du compteur. Un merci pour votre soutien à A2 Tools.",
+      "textureOffset": "Chaque barre commence sa texture à un endroit différent, pour qu'elles ne se ressemblent pas toutes.",
       "trainingMode": "En mode entraînement, quels mannequins la fenêtre Détails affiche : tous ensemble, ou seulement celui que tu frappes le plus.",
       "allTargetsWindow": "En mode Toutes les cibles, le compteur additionne chaque cible touchée dans ce délai avant le dernier coup.",
+      "updateRate": "À quelle fréquence les chiffres du compteur se rafraîchissent. Plus rapide affiche les coups plus tôt mais utilise plus de CPU.",
       "debugLogging": "Écrit un journal de diagnostic que le développeur peut utiliser pour trouver les problèmes.",
       "saveRawPackets": "Enregistre le trafic brut du jeu pour les rapports de bug. Le journal de débogage s'active avec.",
       "globalHotkeys": "Les touches ci-dessous fonctionnent partout, même quand le jeu est au premier plan. Désactivé, elles sont libérées pour d'autres programmes. Sous Linux, le bureau les enregistre et peut vous demander de les approuver.",

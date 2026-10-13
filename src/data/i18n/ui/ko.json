@@ -105,7 +105,8 @@
       "multiHitHits": "다중타",
       "maxHp": "최대 HP",
       "hits": "타격",
-      "selfHealing": "자가 회복"
+      "selfHealing": "자가 회복",
+      "deaths": "사망"
     },
     "titleFor": "대상",
     "titleVs": "vs",
@@ -162,7 +163,10 @@
     "healTimingNote": "이 전투에는 치유 시점 데이터가 없습니다(이전 버전으로 기록됨).",
     "chart": {
       "bossHp": "보스 HP",
-      "ping": "핑"
+      "ping": "핑",
+      "death": "사망",
+      "died": "사망 시각",
+      "downFor": "사망 시간"
     },
     "hpsChart": "초당 치유량",
     "sectionChart": "차트",
@@ -282,6 +286,11 @@
       "label": "색상 테마",
       "options": {
         "aion2": "AION2",
+        "aion2Classes": "AION2 (직업 색상)",
+        "aion2ClassesVivid": "AION2 (직업 색상, 선명)",
+        "aion2Spectrum": "스펙트럼",
+        "aion2Aurora": "오로라",
+        "aion2Sunset": "노을",
         "asmodian": "아스모디안",
         "cogni": "코그니",
         "elyos": "엘리오스",
@@ -293,6 +302,23 @@
         "varian": "바리안"
       }
     },
+    "textureOffset": "질감 위치 다르게",
+    "barTexture": {
+      "label": "막대 질감",
+      "supportersOnly": "후원자 전용: 위의 A2 Tools 계정에서 로그인하면 사용할 수 있습니다.",
+      "options": {
+        "none": "없음",
+        "flames": "불꽃",
+        "crystal": "서리 수정",
+        "glacier": "빙하",
+        "feathers": "깃털",
+        "wing": "날개",
+        "storm": "폭풍",
+        "nebula": "성운",
+        "galaxy": "은하",
+        "aura": "오라"
+      }
+    },
     "language": {
       "label": "언어"
     },
@@ -302,6 +328,8 @@
     "meterOpacity": {
       "label": "막대 불투명도"
     },
+    "barPreview": "미리 보기",
+    "meterSaturation": {"label": "막대 색 선명도"},
     "bossNameSize": {
       "label": "제목 크기"
     },
@@ -312,6 +340,15 @@
         "mostRecent": "최근 피해 대상",
         "lastHitByMe": "내가 최근에 공격한 대상",
         "allTargets": "모든 대상 합산"
+      }
+    },
+    "updateRate": {
+      "label": "미터 갱신 주기",
+      "options": {
+        "100": "0.1초",
+        "200": "0.2초 (기본)",
+        "250": "0.25초",
+        "500": "0.5초"
       }
     },
     "allTargetsWindow": {
@@ -335,6 +372,14 @@
     },
     "defaultMeterMode": {
       "label": "시작 대상 모드"
+    },
+    "partyStat": {
+      "label": "플레이어 이름 옆",
+      "options": {
+        "combatPower": "전투력",
+        "gearScore": "장비 점수",
+        "off": "끄기"
+      }
     },
     "trainingMode": {
       "label": "훈련 모드의 상세 정보",
@@ -388,9 +433,14 @@
       "showLockBtn": "미터가 마우스를 무시하게 하여 클릭이 게임으로 전달되도록 하는 버튼입니다.",
       "windowOpacity": "미터 배경의 투명도입니다. 막대와 글자는 그대로입니다.",
       "meterOpacity": "색이 있는 피해량 막대의 불투명도입니다.",
+      "meterSaturation": "막대 색의 진하기입니다. 낮추면 부드럽게, 높이면 더 선명하게 보입니다.",
       "bossNameSize": "막대 위에 있는 보스 또는 대상 이름의 크기입니다.",
+      "partyStat": "미터와 상세에서 각 플레이어 이름 옆에 표시되는 숫자입니다. 내 파티원에게만 표시됩니다.",
+      "barTexture": "미터 막대 위에 무늬를 입힙니다. A2 Tools를 후원해 주신 분들께 드리는 감사의 표시입니다.",
+      "textureOffset": "막대마다 질감이 다른 위치에서 시작해 막대들이 똑같아 보이지 않습니다.",
       "trainingMode": "훈련 모드에서 상세 정보 창이 보여 줄 허수아비입니다: 전부 함께, 또는 가장 많이 때린 하나만.",
       "allTargetsWindow": "전체 대상 모드에서 마지막 타격 전 이 시간 안에 맞힌 모든 대상을 합산합니다.",
+      "updateRate": "미터 수치를 새로 고치는 간격입니다. 빠를수록 피해가 빨리 보이지만 CPU를 더 사용합니다.",
       "debugLogging": "개발자가 문제를 찾는 데 쓸 수 있는 진단 로그를 기록합니다.",
       "saveRawPackets": "버그 보고용으로 원시 게임 트래픽을 기록합니다. 디버그 로그도 함께 켜집니다.",
       "globalHotkeys": "아래 키는 게임 화면이 앞에 있을 때도 작동합니다. 끄면 다른 프로그램이 이 키를 쓸 수 있습니다. 리눅스에서는 데스크톱이 키를 등록하며 승인을 요청할 수 있습니다.",

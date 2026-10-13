@@ -6,7 +6,9 @@
 //                                              one of the plugin's decoders. Each event arrives once,
 //                                              in order, even those from while the window was closed
 //                                              (since the meter started); `character` is who was
-//                                              playing (with events:character), else null
+//                                              playing (with events:character), else null; `at` is
+//                                              when the meter read it (unix ms), or null on meters
+//                                              that don't say
 //   a2.on("character", (c) => ...)             your character (name, serverId, class, level)
 //   a2.on("language", (code) => ...)           the meter's language ("en", "ko", "zh-Hans", ...), at start and on change
 //   a2.on("compact", (on) => ...)              the window's fold button: show only the essentials
@@ -43,7 +45,7 @@
     if (msg.event) {
       for (const fn of handlers[msg.event] || []) {
         try {
-          fn(msg.data, { character: msg.character ?? null });
+          fn(msg.data, { character: msg.character ?? null, at: msg.at ?? null });
         } catch (e) {
           console.error(e);
         }

@@ -6,9 +6,9 @@ Every package needs a 64-bit (x86_64) system with WebKitGTK 4.1: Ubuntu 22.04, D
 
 ## Contents
 
-[![Ubuntu](https://img.shields.io/badge/Ubuntu-E95420?logo=ubuntu&logoColor=white)](#ubuntu-debian-linux-mint-pop_os) [![Debian](https://img.shields.io/badge/Debian-A81D33?logo=debian&logoColor=white)](#ubuntu-debian-linux-mint-pop_os) [![Linux Mint](https://img.shields.io/badge/Linux_Mint-87CF3E?logo=linuxmint&logoColor=white)](#ubuntu-debian-linux-mint-pop_os) [![Pop!_OS](https://img.shields.io/badge/Pop%21__OS-48B9C7?logo=popos&logoColor=white)](#ubuntu-debian-linux-mint-pop_os) [![Fedora](https://img.shields.io/badge/Fedora-51A2DA?logo=fedora&logoColor=white)](#fedora) [![Bazzite](https://img.shields.io/badge/Bazzite-8A3FFC?logo=fedora&logoColor=white)](#bazzite-silverblue-kinoite-aurora-bluefin) [![Steam Deck](https://img.shields.io/badge/Steam_Deck-1A9FFF?logo=steamdeck&logoColor=white)](#steam-deck-steamos) [![openSUSE](https://img.shields.io/badge/openSUSE-73BA25?logo=opensuse&logoColor=white)](#opensuse) [![Arch](https://img.shields.io/badge/Arch-1793D1?logo=archlinux&logoColor=white)](#cachyos-arch-manjaro-endeavouros) [![CachyOS](https://img.shields.io/badge/CachyOS-08A88A?logo=cachyos&logoColor=white)](#cachyos-arch-manjaro-endeavouros) [![Manjaro](https://img.shields.io/badge/Manjaro-35BF5C?logo=manjaro&logoColor=white)](#cachyos-arch-manjaro-endeavouros) [![EndeavourOS](https://img.shields.io/badge/EndeavourOS-7F3FBF?logo=endeavouros&logoColor=white)](#cachyos-arch-manjaro-endeavouros)
+[![Ubuntu](https://img.shields.io/badge/Ubuntu-E95420?logo=ubuntu&logoColor=white)](#ubuntu-debian-linux-mint-pop_os) [![Debian](https://img.shields.io/badge/Debian-A81D33?logo=debian&logoColor=white)](#ubuntu-debian-linux-mint-pop_os) [![Linux Mint](https://img.shields.io/badge/Linux_Mint-87CF3E?logo=linuxmint&logoColor=white)](#ubuntu-debian-linux-mint-pop_os) [![Pop!_OS](https://img.shields.io/badge/Pop%21__OS-48B9C7?logo=popos&logoColor=white)](#ubuntu-debian-linux-mint-pop_os) [![Fedora](https://img.shields.io/badge/Fedora-51A2DA?logo=fedora&logoColor=white)](#fedora) [![Bazzite](https://img.shields.io/badge/Bazzite-8A3FFC?logo=fedora&logoColor=white)](#bazzite-silverblue-kinoite-aurora-bluefin) [![Steam Deck](https://img.shields.io/badge/Steam_Deck-1A9FFF?logo=steamdeck&logoColor=white)](#steam-deck-and-steam-machine-steamos) [![openSUSE](https://img.shields.io/badge/openSUSE-73BA25?logo=opensuse&logoColor=white)](#opensuse) [![Arch](https://img.shields.io/badge/Arch-1793D1?logo=archlinux&logoColor=white)](#cachyos-arch-manjaro-endeavouros) [![CachyOS](https://img.shields.io/badge/CachyOS-08A88A?logo=cachyos&logoColor=white)](#cachyos-arch-manjaro-endeavouros) [![Manjaro](https://img.shields.io/badge/Manjaro-35BF5C?logo=manjaro&logoColor=white)](#cachyos-arch-manjaro-endeavouros) [![EndeavourOS](https://img.shields.io/badge/EndeavourOS-7F3FBF?logo=endeavouros&logoColor=white)](#cachyos-arch-manjaro-endeavouros)
 
-- **[Install](#install):** [Ubuntu, Debian, Mint, Pop!_OS](#ubuntu-debian-linux-mint-pop_os) · [Fedora](#fedora) · [Bazzite and other image-based Fedoras](#bazzite-silverblue-kinoite-aurora-bluefin) · [Steam Deck (SteamOS)](#steam-deck-steamos) · [openSUSE](#opensuse) · [Arch, CachyOS, Manjaro, EndeavourOS](#cachyos-arch-manjaro-endeavouros)
+- **[Install](#install):** [Ubuntu, Debian, Mint, Pop!_OS](#ubuntu-debian-linux-mint-pop_os) · [Fedora](#fedora) · [Bazzite and other image-based Fedoras](#bazzite-silverblue-kinoite-aurora-bluefin) · [Steam Deck and Steam Machine (SteamOS)](#steam-deck-and-steam-machine-steamos) · [openSUSE](#opensuse) · [Arch, CachyOS, Manjaro, EndeavourOS](#cachyos-arch-manjaro-endeavouros)
 - **[Update](#update):** [how each install updates](#how-each-install-updates) · [the update prompt](#the-update-prompt) · [by hand](#update-by-hand) · [which version do I have?](#which-version-do-i-have)
 - **[Start and remove](#start-and-remove)**
 - **[What works on Linux](#what-works-on-linux)**
@@ -62,7 +62,25 @@ systemctl reboot
 
 Updates then come with your system updates: Bazzite installs them on its own, or run `rpm-ostree upgrade` and restart. On a Steam Deck running Bazzite, use **Desktop Mode**: in Game Mode, nothing can draw over the game.
 
-### Steam Deck (SteamOS)
+#### Updating without a restart (advanced)
+
+`rpm-ostree` can also apply a meter update to the running system. Close the meter, then:
+
+```bash
+rpm-ostree upgrade
+```
+
+```bash
+sudo rpm-ostree apply-live --allow-replacement
+```
+
+Start the meter again and check the version with `rpm -q a2-tools-dps-meter`.
+
+- `rpm-ostree upgrade` also fetches any new Bazzite system image waiting at the time, and `apply-live` would then apply that system update live too, which is best avoided. If one is waiting (`rpm-ostree status` shows a new base image), restart once for it, and use this only when the meter alone has changed.
+- `--allow-replacement` is needed because the meter is already installed: without it, `apply-live` only adds new packages.
+- If anything misbehaves afterwards, including packet capture, a normal restart sets it right: the update is staged either way.
+
+### Steam Deck and Steam Machine (SteamOS)
 
 SteamOS replaces its read-only system with every update, so anything installed into it directly is wiped. Instead, the meter goes in a **distrobox**: a container with its own Arch Linux inside, which SteamOS 3.5 and later include. It must be created with `--root`: an ordinary (rootless) container cannot read the game's network traffic.
 
@@ -75,7 +93,24 @@ The overlay only works in **Desktop Mode**. In Game Mode, nothing can draw over 
     passwd
     ```
 
-3. Create the box:
+3. Keep the box on your home partition. SteamOS stores containers made with `--root` on a small system partition, which the box doesn't fit on ("insufficient space"). Point that storage at your home partition, once:
+
+    ```bash
+    sudo mkdir -p /home/.a2tools-containers
+    ```
+
+    ```bash
+    sudo tee /etc/containers/storage.conf <<'EOF'
+    [storage]
+    driver = "overlay"
+    graphroot = "/home/.a2tools-containers"
+    runroot = "/run/containers/storage"
+    EOF
+    ```
+
+    If an earlier attempt stopped with "insufficient space", clear what it left behind first: `sudo podman system reset --force`. SteamOS keeps this setting through its updates.
+
+4. Create the box:
 
     ```bash
     distrobox create --root --name a2tools --image archlinux:latest
@@ -83,7 +118,7 @@ The overlay only works in **Desktop Mode**. In Game Mode, nothing can draw over 
 
     The first time you enter it (the next step), it takes a few minutes to set up and asks you to choose a password for your user inside the box. Any password will do; sudo inside the box asks for it.
 
-4. Download the meter and install it inside the box:
+5. Download the meter and install it inside the box:
 
     ```bash
     curl -LO https://cdn.a2tools.app/linux/a2tools-dps-meter-latest-x86_64.pkg.tar.zst
@@ -97,13 +132,13 @@ The overlay only works in **Desktop Mode**. In Game Mode, nothing can draw over 
     distrobox enter --root a2tools -- sudo pacman -U --noconfirm ~/a2tools-dps-meter-latest-x86_64.pkg.tar.zst
     ```
 
-5. Start AION 2 from Steam, still in Desktop Mode, set to borderless or windowed. Then start the meter from Konsole:
+6. Start AION 2 from Steam, still in Desktop Mode, set to borderless or windowed. Then start the meter from Konsole:
 
     ```bash
     distrobox enter --root a2tools -- a2tools-dps-meter
     ```
 
-SteamOS updates leave the box alone, so the meter survives them. This route is new and not yet confirmed on a real Steam Deck: please tell us how it goes.
+SteamOS updates leave the box alone, so the meter survives them. This route is new and not yet confirmed on a real Steam Deck or Steam Machine: please tell us how it goes.
 
 ### openSUSE
 
@@ -184,7 +219,7 @@ distrobox enter --root a2tools -- pacman -Q a2tools-dps-meter
 
 ## Start and remove
 
-The meter is in your application menu, as A2Tools DPS Meter; on a Steam Deck, start it from Konsole as in [step 5](#steam-deck-steamos). To start it from a terminal with its output saved, which helps if you send us logs:
+The meter is in your application menu, as A2Tools DPS Meter; on a Steam Deck, start it from Konsole as in [step 6](#steam-deck-and-steam-machine-steamos). To start it from a terminal with its output saved, which helps if you send us logs:
 
 ```bash
 a2tools-dps-meter 2>&1 | tee ~/meter-console.log
@@ -312,7 +347,7 @@ Arch, Manjaro, EndeavourOS (if you would rather build than use the package):
 sudo pacman -S --needed webkit2gtk-4.1 base-devel curl wget file openssl appmenu-gtk-module libappindicator-gtk3 librsvg libpcap git
 ```
 
-**Steam Deck:** no need to build: follow the [Steam Deck instructions](#steam-deck-steamos).
+**Steam Deck and Steam Machine:** no need to build: follow the [SteamOS instructions](#steam-deck-and-steam-machine-steamos).
 
 ### 2. Download and build the meter
 

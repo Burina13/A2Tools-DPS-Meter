@@ -1,7 +1,8 @@
 use std::ffi::{c_char, c_int, c_long, c_uint, CStr, CString};
 use std::ptr;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::collections::HashSet;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use libloading::{Library, Symbol};
@@ -238,13 +239,34 @@ unsafe impl Sync for PcapLib {}
 pub struct PcapCapturer {
     running: Arc<AtomicBool>,
     sender: mpsc::Sender<CapturedPayload>,
+    shared: Arc<Shared>,
 }
+
+/// What the capture threads and the device watcher share.
+#[derive(Default)]
+struct Shared {
+    /// Devices with a capture thread (or one about to start), by name. A
+    /// thread takes its device out again when it ends, so a device that goes
+    /// away and comes back (a VPN reconnecting) is captured again.
+    active: Mutex<HashSet<String>>,
+    /// Devices that could not be opened: not tried again, so the log does not
+    /// repeat the failure every scan.
+    failed: Mutex<HashSet<String>>,
+    /// Packets lost because the parser had not taken the earlier ones yet.
+    dropped: AtomicU64,
+}
+
+/// How often to look for network devices that appeared after the start: a
+/// VPN or ping reducer (Mudfish's tap0, a WireGuard tunnel) connected while
+/// the meter runs carries the game from then on.
+const DEVICE_SCAN_MS: u64 = 15_000;
 
 impl PcapCapturer {
     pub fn new(sender: mpsc::Sender<CapturedPayload>) -> Self {
         Self {
             running: Arc::new(AtomicBool::new(false)),
             sender,
+            shared: Arc::default(),
         }
     }
 
@@ -298,6 +320,13 @@ impl PcapCapturer {
         let virtual_devices: Vec<_> = devices.iter().filter(|d| d.is_virtual()).cloned().collect();
         let physical_devices: Vec<_> = devices.iter().filter(|d| !d.is_virtual()).cloned().collect();
 
+        // Every device is claimed now, so the watcher below does not start a
+        // second thread on a physical device still waiting for its delay.
+        {
+            let mut active = self.shared.active.lock().unwrap_or_else(|p| p.into_inner());
+            active.extend(devices.iter().map(|d| d.name.clone()));
+        }
+
         // Start virtual/loopback devices first
         for device in &virtual_devices {
             start_capture_thread(
@@ -305,6 +334,7 @@ impl PcapCapturer {
                 pcap.clone(),
                 self.sender.clone(),
                 self.running.clone(),
+                self.shared.clone(),
             );
         }
 
@@ -316,6 +346,7 @@ impl PcapCapturer {
                     pcap.clone(),
                     self.sender.clone(),
                     self.running.clone(),
+                    self.shared.clone(),
                 );
             }
         } else {
@@ -323,6 +354,7 @@ impl PcapCapturer {
             let running = self.running.clone();
             let sender = self.sender.clone();
             let pcap2 = pcap.clone();
+            let shared = self.shared.clone();
             std::thread::spawn(move || {
                 std::thread::sleep(std::time::Duration::from_millis(1500));
                 if !running.load(Ordering::SeqCst) {
@@ -335,10 +367,45 @@ impl PcapCapturer {
                         pcap2.clone(),
                         sender.clone(),
                         running.clone(),
+                        shared.clone(),
                     );
                 }
             });
         }
+
+        // Devices that appear later, and lost packets.
+        let running = self.running.clone();
+        let sender = self.sender.clone();
+        let shared = self.shared.clone();
+        std::thread::spawn(move || {
+            let mut reported_drops = 0;
+            while running.load(Ordering::SeqCst) {
+                std::thread::sleep(std::time::Duration::from_millis(DEVICE_SCAN_MS));
+                let dropped = shared.dropped.load(Ordering::Relaxed);
+                if dropped > reported_drops {
+                    warn!(
+                        "{} packets lost in the last {} s: the parser fell behind the capture",
+                        dropped - reported_drops,
+                        DEVICE_SCAN_MS / 1000
+                    );
+                    reported_drops = dropped;
+                }
+                let Ok(devices) = pcap.find_all_devs() else { continue };
+                for device in devices {
+                    if !device.has_addresses || crate::platform::pcap::skip_device(&device.name) {
+                        continue;
+                    }
+                    if shared.failed.lock().unwrap_or_else(|p| p.into_inner()).contains(&device.name) {
+                        continue;
+                    }
+                    if !shared.active.lock().unwrap_or_else(|p| p.into_inner()).insert(device.name.clone()) {
+                        continue;
+                    }
+                    info!("New capture device: {} (loopback={})", device.label(), device.is_loopback);
+                    start_capture_thread(device, pcap.clone(), sender.clone(), running.clone(), shared.clone());
+                }
+            }
+        });
     }
 
     pub fn stop(&self) {
@@ -366,15 +433,23 @@ fn start_capture_thread(
     pcap: Arc<PcapLib>,
     sender: mpsc::Sender<CapturedPayload>,
     running: Arc<AtomicBool>,
+    shared: Arc<Shared>,
 ) {
     let label = device.label().to_string();
     let dev_name = device.name.clone();
 
     std::thread::spawn(move || {
+        let release = |failed: bool| {
+            shared.active.lock().unwrap_or_else(|p| p.into_inner()).remove(&dev_name);
+            if failed {
+                shared.failed.lock().unwrap_or_else(|p| p.into_inner()).insert(dev_name.clone());
+            }
+        };
         let handle = match pcap.open_live_handle(&dev_name) {
             Ok(h) => h,
             Err(e) => {
                 warn!("Failed to open capture on {}: {}", label, e);
+                release(true);
                 return;
             }
         };
@@ -403,7 +478,9 @@ fn start_capture_thread(
                     let frame = unsafe { std::slice::from_raw_parts(data, len) };
                     if let Some(mut payload) = parse_tcp_payload(frame, link_type, &label) {
                         payload.captured_at_ms = ts;
-                        let _ = sender.try_send(payload);
+                        if sender.try_send(payload).is_err() {
+                            shared.dropped.fetch_add(1, Ordering::Relaxed);
+                        }
                     }
                 }
                 0 => continue, // Timeout
@@ -417,6 +494,7 @@ fn start_capture_thread(
 
         unsafe { (pcap.close)(handle) };
         info!("Capture stopped on {}", label);
+        release(false);
     });
 }
 
@@ -494,14 +572,10 @@ fn parse_tcp_payload(frame: &[u8], link_type: c_int, device_name: &str) -> Optio
         return None; // Not TCP
     }
 
-    let src_ip = format!(
-        "{}.{}.{}.{}",
-        ip_header[12], ip_header[13], ip_header[14], ip_header[15]
-    );
-    let dst_ip = format!(
-        "{}.{}.{}.{}",
-        ip_header[16], ip_header[17], ip_header[18], ip_header[19]
-    );
+    // Kept as numbers: formatting them as text cost two allocations for
+    // every packet on every device, and nothing reads them as text.
+    let src_ip = std::net::Ipv4Addr::new(ip_header[12], ip_header[13], ip_header[14], ip_header[15]);
+    let dst_ip = std::net::Ipv4Addr::new(ip_header[16], ip_header[17], ip_header[18], ip_header[19]);
 
     let tcp_offset = ip_offset + ip_header_len;
     if frame.len() < tcp_offset + 20 {
@@ -565,7 +639,7 @@ mod tests {
         let frame = [header, &ipv4_tcp()].concat();
         let p = parse_tcp_payload(&frame, link_type, "dev").expect("parsed");
         assert_eq!((p.src_port, p.dst_port), (51000, 13328), "link type {link_type}");
-        assert_eq!(p.dst_ip.as_deref(), Some("193.202.112.99"));
+        assert_eq!(p.dst_ip, Some(std::net::Ipv4Addr::new(193, 202, 112, 99)));
         assert_eq!(p.data, b"hi");
     }
 

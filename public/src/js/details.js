@@ -34,6 +34,7 @@ const createDetailsUI = ({
   getDetails,
   getDetailsContext,
   getDungeonId,
+  getPartyStat,
   onPinnedRowChange,
   onBack,
 }) => {
@@ -181,6 +182,16 @@ const createDetailsUI = ({
     detailsFightTitleEl.innerHTML = `${fightVs} <span class="fightTitleBossName">${bossName}</span>${placeHtml}${tierBadge}${suffix}`;
   };
 
+  // Deaths in the fight: the selected players' (the fight's own details are
+  // everyone's), or "-" where they aren't known (several targets together).
+  const deathCount = (d) => {
+    if (!Array.isArray(d?.deaths)) return "-";
+    const ids = d !== lastUnfilteredDetails && Array.isArray(selectedAttackerIds) && selectedAttackerIds.length
+      ? new Set(selectedAttackerIds.map(Number))
+      : null;
+    return formatCount(ids ? d.deaths.filter((x) => ids.has(Number(x?.actorId))).length : d.deaths.length);
+  };
+
   const STATUS = [
     {
       key: "details.stats.totalDamage",
@@ -201,6 +212,7 @@ const createDetailsUI = ({
     { key: "details.stats.doubleRate", fallback: "Double Rate", getValue: (d) => pctText(d?.totalDoublePct) },
     { key: "details.stats.parryRate", fallback: "Parry Rate", getValue: (d) => pctText(d?.totalParryPct) },
     { key: "details.stats.regen", fallback: "Regen", getValue: (d) => formatDamageCompact(d?.totalRegen) },
+    { key: "details.stats.deaths", fallback: "Deaths", getValue: (d) => deathCount(d) },
   ];
 
   // Stats shown when the DMG/HEAL toggle is on HEAL. Fewer, healing-relevant rows;
@@ -594,6 +606,8 @@ const createDetailsUI = ({
         (actorRow?.isSupporter ? " isSupporter" : "");
       nameEl.textContent = name;
       if (color) nameEl.style.color = color;
+      // Combat power or gear score after the name, as in the meter.
+      const statText = partyStatText(actorRow, getPartyStat?.());
 
       const dpsEl = document.createElement("span");
       dpsEl.className = "detailsPartyBarDps";
@@ -607,7 +621,29 @@ const createDetailsUI = ({
       pctEl.className = "detailsPartyBarPct";
       pctEl.textContent = `${pct.toFixed(1)}%`;
 
-      contentEl.appendChild(nameEl);
+      // Name and stat share the name's space, so the figures to the right
+      // stay lined up whatever the name's length.
+      const nameWrapEl = document.createElement("span");
+      nameWrapEl.className = "detailsPartyBarNameWrap";
+      nameWrapEl.appendChild(nameEl);
+      if (statText) {
+        const statEl = document.createElement("span");
+        statEl.className = "detailsPartyBarStat";
+        statEl.textContent = statText;
+        nameWrapEl.appendChild(statEl);
+      }
+      // Hovering the name shows the other figure: gear score beside combat
+      // power, combat power beside gear score.
+      // With the figure off, no tooltip either.
+      const shownStat = getPartyStat?.();
+      const otherStat = shownStat === "gearScore" ? "combatPower" : "gearScore";
+      const otherValue = shownStat === "off" ? 0 : Number(actorRow?.[otherStat]) || 0;
+      if (otherValue > 0) {
+        const otherLabel = labelText(`settings.partyStat.options.${otherStat}`,
+          otherStat === "gearScore" ? "Gear score" : "Combat power");
+        nameWrapEl.title = `${otherLabel}: ${otherValue.toLocaleString()}`;
+      }
+      contentEl.appendChild(nameWrapEl);
 
       // Same star the meter rows use, so a supporter is marked the same way
       // wherever their name appears rather than only on the live overlay.
@@ -1298,7 +1334,7 @@ const createDetailsUI = ({
     // canvases draw theirs at the same size, and grow their rows with it.
     const text = parseFloat(cs?.fontSize) || 12;
     return {
-      gutter: num("--ftl-gutter", 300),
+      gutter: num("--ftl-gutter", 340),
       right: num("--ftl-right", 52),
       chartHeight: Math.max(num("--ftl-chart-h", 150), Math.round(text * 12)),
       text,
@@ -1383,6 +1419,19 @@ const createDetailsUI = ({
   const detailsBody = detailsPanel?.querySelector?.(".detailsBody");
   const detailsSplitter = detailsPanel?.querySelector?.(".detailsSplitter");
   const SPLIT_KEY = "dpsMeter.detailsSplit";
+  // The dividers are kept with the app's settings (so they last past a
+  // restart), with localStorage as the fallback before those have loaded.
+  const readLayout = (key) => {
+    try {
+      const v = window.javaBridge?.getSetting?.(key);
+      if (v !== undefined && v !== null) return v;
+    } catch { /* below */ }
+    try { return localStorage.getItem(key); } catch { return null; }
+  };
+  const keepLayout = (key, value) => {
+    try { window.javaBridge?.setSetting?.(key, String(value)); } catch { /* below */ }
+    try { localStorage.setItem(key, String(value)); } catch { /* not kept */ }
+  };
   const applySplit = (share) => {
     const top = Math.min(0.8, Math.max(0.2, Number(share) || 0.52));
     detailsBody?.style?.setProperty("--details-top", `${top}fr`);
@@ -1390,7 +1439,7 @@ const createDetailsUI = ({
     if (detailsBody) detailsBody.dataset.split = String(top);
     return top;
   };
-  try { applySplit(localStorage.getItem(SPLIT_KEY)); } catch { applySplit(0.52); }
+  applySplit(readLayout(SPLIT_KEY));
   detailsSplitter?.addEventListener("pointerdown", (event) => {
     if (!detailsBody) return;
     event.preventDefault();
@@ -1405,7 +1454,7 @@ const createDetailsUI = ({
       detailsSplitter.removeEventListener("pointercancel", up);
       detailsSplitter.classList.remove("isDragging");
       if (share !== null) {
-        try { localStorage.setItem(SPLIT_KEY, String(share)); } catch { /* not kept */ }
+        keepLayout(SPLIT_KEY, share);
       }
     };
     detailsSplitter.addEventListener("pointermove", move);
@@ -1417,7 +1466,81 @@ const createDetailsUI = ({
     event.preventDefault();
     const now = Number(detailsBody?.dataset?.split) || 0.52;
     const share = applySplit(now + (event.key === "ArrowDown" ? 0.04 : -0.04));
-    try { localStorage.setItem(SPLIT_KEY, String(share)); } catch { /* not kept */ }
+    keepLayout(SPLIT_KEY, share);
+  });
+
+  // The sidebar's width (the party and the figures; also the timeline's label
+  // gutter): drag the bar on its edge; kept in pixels.
+  const sideSplitter = detailsPanel?.querySelector?.(".detailsSideSplitter");
+  const SIDE_KEY = "dpsMeter.detailsSidebarWidth";
+  const SIDE_MIN = 180;
+  const sideMax = () => Math.max(SIDE_MIN, Math.round((detailsBody?.clientWidth || 1200) * 0.5));
+  let sideRedraw = 0;
+  const applySideWidth = (px) => {
+    const n = Number(px);
+    if (!detailsPanel || !Number.isFinite(n) || n <= 0) {
+      detailsPanel?.style?.removeProperty("--details-sidebar-set");
+      return null;
+    }
+    const width = Math.round(Math.min(sideMax(), Math.max(SIDE_MIN, n)));
+    detailsPanel.style.setProperty("--details-sidebar-set", `${width}px`);
+    // The canvases take the gutter from the style: draw them again.
+    if (!sideRedraw) {
+      sideRedraw = requestAnimationFrame(() => {
+        sideRedraw = 0;
+        updateGridColumns();
+        if (lastDetails) { renderDpsChart(lastDetails); renderTimeline(lastDetails); }
+      });
+    }
+    return width;
+  };
+  applySideWidth(readLayout(SIDE_KEY));
+  const sideWidthNow = () => {
+    const first = detailsBody?.querySelector?.(":scope > .detailsStatsRow");
+    return first?.getBoundingClientRect?.().width || 340;
+  };
+  // The settings arrive after this runs: the dividers are set again on each
+  // opening, from what was kept.
+  const restoreLayout = () => {
+    applySplit(readLayout(SPLIT_KEY));
+    applySideWidth(readLayout(SIDE_KEY));
+  };
+  const keepSideWidth = (width) => {
+    if (width === null) return;
+    keepLayout(SIDE_KEY, width);
+  };
+  sideSplitter?.addEventListener("pointerdown", (event) => {
+    if (!detailsBody) return;
+    event.preventDefault();
+    sideSplitter.setPointerCapture?.(event.pointerId);
+    sideSplitter.classList.add("isDragging");
+    const left = detailsBody.getBoundingClientRect().left;
+    let width = null;
+    const move = (e) => { width = applySideWidth(e.clientX - left); };
+    const up = () => {
+      sideSplitter.removeEventListener("pointermove", move);
+      sideSplitter.removeEventListener("pointerup", up);
+      sideSplitter.removeEventListener("pointercancel", up);
+      sideSplitter.classList.remove("isDragging");
+      keepSideWidth(width);
+    };
+    sideSplitter.addEventListener("pointermove", move);
+    sideSplitter.addEventListener("pointerup", up);
+    sideSplitter.addEventListener("pointercancel", up);
+  });
+  sideSplitter?.addEventListener("keydown", (event) => {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    event.preventDefault();
+    keepSideWidth(applySideWidth(sideWidthNow() + (event.key === "ArrowRight" ? 16 : -16)));
+  });
+  // Double-click: back to the default width.
+  sideSplitter?.addEventListener("dblclick", () => {
+    applySideWidth(null);
+    keepLayout(SIDE_KEY, "");
+    requestAnimationFrame(() => {
+      updateGridColumns();
+      if (lastDetails) { renderDpsChart(lastDetails); renderTimeline(lastDetails); }
+    });
   });
 
   // Which of the timeline's sections show (chart, buffs, casts): the chips at
@@ -1537,6 +1660,15 @@ const createDetailsUI = ({
     timelineIconCache.set(key, entry);
     return entry;
   };
+
+  // A death's cross on the DPS chart names who died when pointed at.
+  dpsChartCanvas?.addEventListener("mousemove", (event) => {
+    const marks = dpsChartCanvas.deathMarks || [];
+    const x = event.clientX - dpsChartCanvas.getBoundingClientRect().left;
+    const near = marks.filter((m) => Math.abs(m.x - x) <= 6).map((m) => m.label);
+    const title = near.join("\n");
+    if (dpsChartCanvas.title !== title) dpsChartCanvas.title = title;
+  });
 
   const renderDpsChart = (details) => {
     if (!dpsChartCanvas || !dpsChartXAxis || !dpsChartLegend) return;
@@ -1740,20 +1872,59 @@ const createDetailsUI = ({
     const isSelectedActor = (actorId) =>
       !Array.isArray(selectedAttackerIds) || selectedAttackerIds.includes(actorId);
 
+    // While a player is down (from their death to their revive, or the
+    // fight's end), their line is drawn grey.
+    const downTimes = new Map(); // actorId -> [[from ms, to ms], ...]
+    for (const d of Array.isArray(unfilteredDetails?.deaths) ? unfilteredDetails.deaths : []) {
+      const from = Number(d?.tsMs);
+      if (!Number.isFinite(from)) continue;
+      const to = Number.isFinite(Number(d?.revivedMs)) ? Number(d.revivedMs) : battleTimeMs;
+      const id = Number(d.actorId);
+      if (!downTimes.has(id)) downTimes.set(id, []);
+      downTimes.get(id).push([from, Math.max(from, to)]);
+    }
     const drawActor = ({ actor, pts }, selected) => {
       const fallbackColor = LANE_COLORS[actorList.indexOf(actor) % LANE_COLORS.length];
       const color = getJobColor(actor.job) || fallbackColor;
-      ctx.beginPath();
-      ctx.strokeStyle = selected ? color : color + "bb";
+      const trace = () => {
+        ctx.beginPath();
+        pts.forEach((dps, i) => {
+          const x = xAt((i / SAMPLES) * battleTimeMs);
+          const y = PAD_TOP + (1 - dps / globalMax) * plotHeight;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+      };
+      const down = downTimes.get(actor.actorId) || [];
+      // The times they were down, as strips across the chart.
+      const downStrips = () => {
+        for (const [from, to] of down) ctx.rect(xAt(from), 0, Math.max(1, xAt(to) - xAt(from)), CHART_HEIGHT);
+      };
       ctx.lineWidth = selected ? 2 : 1.5;
       ctx.setLineDash(selected ? [] : [5, 3]);
-      pts.forEach((dps, i) => {
-        const x = xAt((i / SAMPLES) * battleTimeMs);
-        const y = PAD_TOP + (1 - dps / globalMax) * plotHeight;
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      });
+      // Alive: the class colour, everywhere but the strips.
+      ctx.save();
+      if (down.length) {
+        ctx.beginPath();
+        ctx.rect(0, 0, chartWidth, CHART_HEIGHT);
+        downStrips();
+        ctx.clip("evenodd");
+      }
+      ctx.strokeStyle = selected ? color : color + "bb";
+      trace();
       ctx.stroke();
+      ctx.restore();
+      // Down: grey, inside the strips.
+      if (down.length) {
+        ctx.save();
+        ctx.beginPath();
+        downStrips();
+        ctx.clip();
+        ctx.strokeStyle = "rgba(150, 156, 168, 0.45)";
+        trace();
+        ctx.stroke();
+        ctx.restore();
+      }
       ctx.setLineDash([]);
     };
 
@@ -1792,6 +1963,58 @@ const createDetailsUI = ({
       ctx.setLineDash([]);
     }
 
+    // ── Deaths: a faint line down the chart at each, in the player's colour,
+    // with a cross at the top. Every player's (the lines are all drawn). ──
+    const deaths = (Array.isArray(unfilteredDetails?.deaths) ? unfilteredDetails.deaths : [])
+      .filter((d) => Number.isFinite(Number(d?.tsMs)) && Number(d.tsMs) >= 0);
+    const actorColor = (actorId) => {
+      const actor = actorList.find((a) => a.actorId === actorId);
+      const job = actor?.job || detectedJobByActorId.get(actorId) || detailsActors.get(actorId)?.job || "";
+      const index = actor ? actorList.indexOf(actor) : 0;
+      return getJobColor(job) || LANE_COLORS[index % LANE_COLORS.length];
+    };
+    const deathMarks = [];
+    for (const death of deaths) {
+      const x = xAt(Math.min(Number(death.tsMs), battleTimeMs));
+      const color = actorColor(Number(death.actorId));
+      const who = detailsActors.get(Number(death.actorId))?.nickname || `#${death.actorId}`;
+      // How long they were down, once they're back up.
+      const downMs = Number(death.revivedMs) - Number(death.tsMs);
+      const downFor = death.revivedMs != null && downMs >= 0
+        ? `, ${labelText("details.chart.downFor", "down for")} ${Math.max(1, Math.round(downMs / 1000))}s`
+        : "";
+      deathMarks.push({ x, label: `${who} ${labelText("details.chart.died", "died at")} ${ftlTime(Number(death.tsMs) / 1000)}${downFor}` });
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.globalAlpha = 0.55;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.moveTo(x, PAD_TOP + 9);
+      ctx.lineTo(x, PAD_TOP + plotHeight);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.globalAlpha = 1;
+      // The cross: a dark disc, so it reads over any line, and an X.
+      const cy = PAD_TOP + 4;
+      ctx.fillStyle = "rgba(8, 10, 16, 0.85)";
+      ctx.beginPath();
+      ctx.arc(x, cy, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.moveTo(x - 2.6, cy - 2.6);
+      ctx.lineTo(x + 2.6, cy + 2.6);
+      ctx.moveTo(x + 2.6, cy - 2.6);
+      ctx.lineTo(x - 2.6, cy + 2.6);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Pointing at a cross names who died (see the listener below).
+    dpsChartCanvas.deathMarks = deathMarks;
+
     // ── Legend: a line per player, in the colour it is drawn in (the one
     // selected solid, the rest dashed), then the boss's HP and the ping. ──
     const escapeHtml = (text) => String(text).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
@@ -1814,9 +2037,14 @@ const createDetailsUI = ({
     if (hasPing) {
       legendItems.push({ dash: "2,4", color: "rgba(255,255,255,0.9)", label: escapeHtml(labelText("details.chart.ping", "Ping")) });
     }
+    if (deaths.length) {
+      legendItems.push({ dash: "death", color: "rgba(255,255,255,0.85)", label: escapeHtml(labelText("details.chart.death", "Death")) });
+    }
     dpsChartLegend.innerHTML = legendItems.map(({ dash, color, label }) => {
       if (!dash) return `<span class="legendItem legendMore" style="color:${color}">${label}</span>`;
-      const svgLine = dash === "none"
+      const svgLine = dash === "death"
+        ? `<path d="M8 3 L14 9 M14 3 L8 9" stroke="${color}" stroke-width="1.6" stroke-linecap="round"/>`
+        : dash === "none"
         ? `<line x1="0" y1="6" x2="22" y2="6" stroke="${color}" stroke-width="2"/>`
         : `<line x1="0" y1="6" x2="22" y2="6" stroke="${color}" stroke-width="2" stroke-dasharray="${dash}"/>`;
       return `<span class="legendItem">
@@ -2384,6 +2612,9 @@ const createDetailsUI = ({
       combatTime: formatBattleTime(battleTimeMs),
       battleTimeMs,
       skills,
+      // Deaths are timed from their own target's start, so they are marked
+      // for one target only, not for several laid over each other.
+      deaths: detailsList.length === 1 && Array.isArray(detailsList[0]?.deaths) ? detailsList[0].deaths : null,
       showSkillIcons,
       perActorStats: combinePerActorStats(detailsList),
       showCombinedTotals: !selectedAttackerIds || selectedAttackerIds.length === 0,
@@ -2708,6 +2939,7 @@ const createDetailsUI = ({
     fightDungeonId = Number(getDungeonId?.()) || 0;
     fightMobCode = Number(firstTarget?.mobCode) || 0;
     updateHeaderText();
+    restoreLayout();
     detailsPanel.classList.add("open");
     detailsPanel.style.removeProperty("width");
     updateGridColumns();
@@ -2836,6 +3068,7 @@ const createDetailsUI = ({
     fightDungeonId = Number(record.dungeonId) || 0;
     fightMobCode = Number(record.mobCode) || 0;
     updateHeaderText();
+    restoreLayout();
     detailsPanel.classList.add("open");
     detailsPanel.style.removeProperty("width");
     updateGridColumns();
@@ -2943,5 +3176,12 @@ const createDetailsUI = ({
   });
   syncModeButtons();
 
-  return { open, close, isOpen, isPinned, render, updateLabels, refresh, updateGridColumns, openHistoryFight, resetDetailsMode };
+  // The party stat setting changed: redraw the party list.
+  const refreshPartyStat = () => {
+    if (!lastDetails && !detailsContext) return;
+    const ctx = buildPartyBarStats();
+    renderPartyBars(ctx?.stats || lastDetails?.perActorStats, ctx?.battleTimeMs || lastDetails?.battleTimeMs);
+  };
+
+  return { open, close, isOpen, isPinned, render, updateLabels, refresh, updateGridColumns, openHistoryFight, resetDetailsMode, refreshPartyStat };
 };

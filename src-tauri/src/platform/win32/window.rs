@@ -39,6 +39,25 @@ pub fn show_on_top_without_focus(window: &tauri::WebviewWindow) {
     }
 }
 
+/// Hide a window that `show_on_top_without_focus` shows, the same way: Tauri's
+/// own show and hide go through tao, which keeps a visible flag of its own.
+/// A raw show leaves that flag "hidden", so a tao hide after it changed
+/// nothing (the window stayed up), and a tao show takes focus. Shown and
+/// hidden raw both ways, tao's flag stays "visible" from the window's
+/// creation (`HIDE_AFTER_BUILD`).
+pub fn hide_without_focus(window: &tauri::WebviewWindow) {
+    let Some(hwnd) = hwnd_of(window) else { return };
+    unsafe {
+        let _ = ShowWindow(hwnd, SW_HIDE);
+    }
+}
+
+/// A window to be shown and hidden with the functions above is built visible
+/// (without focus), so tao applies its frameless style and marks it visible,
+/// then hidden with `hide_without_focus` if it should start hidden. Built
+/// hidden, tao never styled it, and a raw show brought it up with a title bar.
+pub const HIDE_AFTER_BUILD: bool = true;
+
 /// Drop the overlay from the top and minimise it, without activating anything.
 pub fn minimize_off_top(window: &tauri::WebviewWindow) {
     let Some(hwnd) = hwnd_of(window) else { return };

@@ -418,6 +418,7 @@ mod tests {
                 skills: vec![],
                 ping_history: vec![],
                 heal_skills: vec![],
+                deaths: None,
             },
             actors: actors
                 .into_iter()

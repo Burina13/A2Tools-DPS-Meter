@@ -15,7 +15,7 @@
   window.a2Build = { online: true };
   window.a2BuildReady = invoke("build_features")
     .then((features) => {
-      window.a2Build = { online: features?.online !== false };
+      window.a2Build = { online: features?.online !== false, devSupporter: features?.devSupporter === true };
       document.documentElement.classList.toggle("a2-offline", !window.a2Build.online);
       return window.a2Build;
     })
@@ -249,16 +249,27 @@
   })();
 
   // --- DPS data polling via events ---
-  // The Rust backend emits "dps-update" every 500ms.
-  // We cache the latest snapshot so getDpsData() can return it synchronously.
+  // The Rust backend emits "dps-update" when it changes (checked every 100ms,
+  // and sent again every 2 s while it doesn't).
+  // We cache the latest snapshot so getDpsData() can return it synchronously,
+  // and draw it now rather than at the meter's next 100 ms poll.
   if (viewMode !== "settings") listen("dps-update", (event) => {
     cachedDpsJson = JSON.stringify(event.payload);
+    window._dpsApp?.fetchDps?.();
     // NOTE: do NOT pre-fetch get_details_context here. It clones the full combat
     // aggregate and runs O(targets×actors×skills) work; firing it every 500ms
     // (even with the details panel closed) was a major source of CPU lag that
     // grew with fight length. The details panel self-refreshes every 2s while
     // open (details.js), and getDetailsContext() below refreshes on demand.
   });
+
+  // The backend sends an update when it changes (and every 2 s), so a window
+  // opened while nothing changes asks for the current one.
+  if (viewMode !== "settings") {
+    invoke("get_dps_snapshot").then((dps) => {
+      if (cachedDpsJson == null) cachedDpsJson = JSON.stringify(dps);
+    }).catch(() => {});
+  }
 
   if (viewMode !== "settings") listen("ping-update", (event) => {
     cachedPing = event.payload;
@@ -291,6 +302,8 @@
     }
     window._dpsApp?.refreshAccountPanel?.(event?.payload);
     window._dpsApp?.onAccountPromoResult?.(event?.payload);
+    // Signed in or out: a supporter's bar textures come or go with it.
+    window._dpsApp?.refreshSupporterStatus?.();
   });
 
   // Settings was asked to open while already open; check the account again
@@ -445,6 +458,8 @@
           battleTime: Number(dps.battleTime) || 0,
           totalTargetDamage: results.reduce((sum, item) => sum + (Number(item.totalTargetDamage) || 0), 0),
           skills: mergeSkills("skills"), healSkills: mergeSkills("healSkills"), pingHistory: [],
+          // Each target's deaths are timed from its own start: none for several.
+          deaths: null,
         };
       }
       const issue = Array.isArray(result?.skills) && result.skills.length
@@ -1185,7 +1200,7 @@
     const tooltipBounds = tooltip?.getBoundingClientRect();
     // Reserve the tooltip's travel over the rows once. Resizing the native
     // window for every pointer position can stall WebKit/GTK and the compositor.
-    const listBounds = tooltip ? document.querySelector(".list")?.getBoundingClientRect() : null;
+    const listBounds = tooltip ? document.querySelector(".list:not(.barPreviewList)")?.getBoundingClientRect() : null;
     const room = spaceRightBelow();
     const tooltipW = tooltipBounds
       ? Math.ceil(Math.max(tooltipBounds.right, listBounds ? listBounds.right + 12 + tooltipBounds.width : 0)) + 8

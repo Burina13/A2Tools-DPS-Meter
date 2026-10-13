@@ -18,7 +18,7 @@ pub mod decoder;
 use std::collections::{HashMap, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Condvar, Mutex, RwLock};
 use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
@@ -39,6 +39,9 @@ pub const SCHEME: &str = "a2plugin";
 /// The newest plugin API this meter speaks; it runs older ones too.
 /// 2 added decoders' `self` field and `a2.window` (the `window` permission).
 const API_VERSION: u32 = 2;
+/// Shortest a plugin may make its window's content (`ui.panel.height`), so
+/// one that pops up a line or two, such as an alert, takes no more room.
+const MIN_PANEL_HEIGHT: f64 = 60.0;
 /// Which plugin windows were open, and whether hidden, when the meter last
 /// ran: a JSON object of id → "shown" | "hidden". They open again at start, so
 /// a plugin that watches in the background (hidden) keeps doing so.
@@ -48,7 +51,9 @@ const MAX_STORED: usize = 1024 * 1024;
 /// How long a decoded event waits before it is stamped with the character and
 /// sent. At login the game sends some data (the pet list) a few records
 /// before the one that says which character is playing; the wait lets that
-/// record land first, so the data is filed under the right character.
+/// record land first, so the data is filed under the right character. Only
+/// plugins that are told the character (`events:character`) wait, and not
+/// for decoders marked `immediate`; the others get each event as it is read.
 const SETTLE: Duration = Duration::from_millis(500);
 /// Events kept per plugin for the run, replayed to its window when it opens.
 const MAX_LOGGED: usize = 20_000;
@@ -122,6 +127,12 @@ fn plugins_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 /// A decoded event waiting out `SETTLE`.
 struct Pending {
     at: Instant,
+    /// Waits out `SETTLE` (the plugin is told the character, and the
+    /// decoder isn't `immediate`).
+    settle: bool,
+    /// When the record was read, unix ms: plugins get it as `at`, so one
+    /// can tell how old an event is however long it waited.
+    read_ms: i64,
     plugin: String,
     event: String,
     data: Value,
@@ -135,6 +146,8 @@ pub struct PluginHost {
     loaded: RwLock<Vec<Loaded>>,
     errors: RwLock<Vec<PluginInfo>>,
     pending: Mutex<Vec<Pending>>,
+    /// Wakes the flusher when an event is queued.
+    queued: Condvar,
     log: Mutex<HashMap<String, VecDeque<Value>>>,
     seq: Mutex<u64>,
     run: String,
@@ -151,6 +164,7 @@ impl Default for PluginHost {
             loaded: RwLock::default(),
             errors: RwLock::default(),
             pending: Mutex::default(),
+            queued: Condvar::new(),
             log: Mutex::default(),
             seq: Mutex::new(0),
             run,
@@ -170,6 +184,26 @@ fn character(app: &tauri::AppHandle) -> Option<Value> {
             "class": p.class.map(|c| c.class_name().to_string()),
         })
     })
+}
+
+/// Take the events that may go now, in order: one that doesn't settle, or
+/// has waited out `SETTLE`, unless an earlier event of its plugin is still
+/// waiting (an `immediate` soul pickup never overtakes the pet list before it).
+fn take_ready(pending: &mut Vec<Pending>, now: Instant) -> Vec<Pending> {
+    let mut held: Vec<String> = Vec::new();
+    let mut ready = Vec::new();
+    for p in std::mem::take(pending) {
+        let due = !p.settle || now.duration_since(p.at) >= SETTLE;
+        if due && !held.contains(&p.plugin) {
+            ready.push(p);
+        } else {
+            if !held.contains(&p.plugin) {
+                held.push(p.plugin.clone());
+            }
+            pending.push(p);
+        }
+    }
+    ready
 }
 
 fn valid_id(id: &str) -> bool {
@@ -261,8 +295,19 @@ impl PluginHost {
             std::thread::Builder::new()
                 .name("plugin-events".into())
                 .spawn(move || loop {
-                    std::thread::sleep(Duration::from_millis(150));
-                    host.flush(&app);
+                    // Woken by each queued event; the timeout lets settling
+                    // events go once their wait is over.
+                    let ready = {
+                        let mut pending = host.pending.lock().unwrap_or_else(|p| p.into_inner());
+                        let mut ready = take_ready(&mut pending, Instant::now());
+                        if ready.is_empty() {
+                            let wait = if pending.is_empty() { Duration::from_secs(1) } else { Duration::from_millis(50) };
+                            pending = host.queued.wait_timeout(pending, wait).unwrap_or_else(|p| p.into_inner()).0;
+                            ready = take_ready(&mut pending, Instant::now());
+                        }
+                        ready
+                    };
+                    host.flush(&app, ready);
                 })
                 .ok();
         }
@@ -297,29 +342,27 @@ impl PluginHost {
                         continue;
                     }
                 }
+                let settle = !d.immediate && plugin.manifest.permissions.iter().any(|p| p == "events:character");
                 self.pending.lock().unwrap_or_else(|p| p.into_inner()).push(Pending {
                     at: Instant::now(),
+                    settle,
+                    read_ms: std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .map(|d| d.as_millis() as i64)
+                        .unwrap_or_default(),
                     plugin: plugin.manifest.id.clone(),
                     event: format!("decoded:{}", d.name),
                     data,
                 });
+                self.queued.notify_one();
             }
         }
     }
 
-    /// Send the events that have waited out `SETTLE`: number them, stamp them
+    /// Send events that are ready (`take_ready`): number them, stamp them
     /// with the character (for plugins allowed to know it), keep them in the
     /// run's log, and pass them to the plugin's window if it is open.
-    fn flush(&self, app: &tauri::AppHandle) {
-        let ready: Vec<Pending> = {
-            let mut pending = self.pending.lock().unwrap_or_else(|p| p.into_inner());
-            if pending.is_empty() {
-                return;
-            }
-            let now = Instant::now();
-            let split = pending.iter().position(|p| now.duration_since(p.at) < SETTLE).unwrap_or(pending.len());
-            pending.drain(..split).collect()
-        };
+    fn flush(&self, app: &tauri::AppHandle, ready: Vec<Pending>) {
         if ready.is_empty() {
             return;
         }
@@ -333,10 +376,14 @@ impl PluginHost {
                 *seq += 1;
                 *seq
             };
+            // Named for its plugin: a window's listener hears events sent to
+            // any window (see pluginHost.js).
             let event = serde_json::json!({
+                "plugin": item.plugin,
                 "seq": seq,
                 "event": item.event,
                 "data": item.data,
+                "at": item.read_ms,
                 "character": if allowed { who.clone() } else { None },
             });
             {
@@ -648,6 +695,101 @@ fn remember_window(app: &tauri::AppHandle, id: &str, state: Option<&str>) {
     settings.settings.set(WINDOWS_KEY, &Value::Object(windows).to_string());
 }
 
+/// Where a plugin window was last left, `"x,y"` (physical pixels), per id.
+const POSITION_PREFIX: &str = "dpsMeter.pluginWindow.";
+
+/// Where to put a plugin window: where it was left, if that is still on a
+/// screen (a monitor unplugged or rearranged since leaves it out of reach).
+fn saved_position(app: &tauri::AppHandle, window: &tauri::WebviewWindow, id: &str) -> Option<(i32, i32)> {
+    let value = app.try_state::<AppState>()?.settings.get(&format!("{POSITION_PREFIX}{id}"))?;
+    let (x, y) = value.split_once(',')?;
+    let (x, y) = (x.trim().parse().ok()?, y.trim().parse().ok()?);
+    let width = window.outer_size().map(|size| size.width).unwrap_or(240);
+    let screens: Vec<_> = window
+        .available_monitors()
+        .unwrap_or_default()
+        .iter()
+        .map(|monitor| {
+            let area = monitor.work_area();
+            (area.position.x, area.position.y, area.size.width, area.size.height)
+        })
+        .collect();
+    within_reach(x, y, width, &screens).then_some((x, y))
+}
+
+/// Whether a window at `x, y`, `width` wide, has enough of its top bar on one
+/// of `screens` (x, y, width, height) to be seen and dragged back. With no
+/// screens known (some Linux sessions report none), any place will do.
+fn within_reach(x: i32, y: i32, width: u32, screens: &[(i32, i32, u32, u32)]) -> bool {
+    const SHOWN_WIDTH: i64 = 48;
+    const BAR_HEIGHT: i64 = 32;
+    if screens.is_empty() {
+        return true;
+    }
+    let (x, y, width) = (i64::from(x), i64::from(y), i64::from(width));
+    screens.iter().any(|&(sx, sy, sw, sh)| {
+        let (sx, sy, sw, sh) = (i64::from(sx), i64::from(sy), i64::from(sw), i64::from(sh));
+        let shown = (x + width).min(sx + sw) - x.max(sx);
+        shown >= SHOWN_WIDTH.min(width) && y >= sy && y + BAR_HEIGHT <= sy + sh
+    })
+}
+
+/// When each plugin window was last shown: moves right after that are the
+/// window manager placing it, not the user.
+fn shown_at() -> &'static Mutex<HashMap<String, Instant>> {
+    static SHOWN: std::sync::OnceLock<Mutex<HashMap<String, Instant>>> = std::sync::OnceLock::new();
+    SHOWN.get_or_init(Mutex::default)
+}
+
+/// Show a plugin window where it was last left. KWin places a window anew
+/// each time it is mapped (centred, 2026-10-12), so the position is set
+/// before showing and again once it is up.
+fn show_in_place(app: &tauri::AppHandle, window: &tauri::WebviewWindow, id: &str, show: impl FnOnce()) {
+    shown_at().lock().unwrap_or_else(|p| p.into_inner()).insert(id.to_string(), Instant::now());
+    let saved = saved_position(app, window, id);
+    if let Some((x, y)) = saved {
+        let _ = window.set_position(tauri::PhysicalPosition::new(x, y));
+    }
+    show();
+    if let Some((x, y)) = saved {
+        let window = window.clone();
+        tauri::async_runtime::spawn(async move {
+            for wait in [40, 120, 250] {
+                tokio::time::sleep(Duration::from_millis(wait)).await;
+                let _ = window.set_position(tauri::PhysicalPosition::new(x, y));
+            }
+        });
+    }
+}
+
+/// A plugin window moved: remember where, once it has stopped moving.
+/// Ignored while the window is being shown (see `show_in_place`).
+pub fn note_moved(app: &tauri::AppHandle, label: &str, at: tauri::PhysicalPosition<i32>) {
+    static LATEST: std::sync::OnceLock<Mutex<HashMap<String, (i32, i32)>>> = std::sync::OnceLock::new();
+    let Some(id) = label.strip_prefix("plugin-").filter(|id| valid_id(id)).map(str::to_string) else { return };
+    let placing = shown_at()
+        .lock()
+        .unwrap_or_else(|p| p.into_inner())
+        .get(&id)
+        .is_some_and(|t| t.elapsed() < Duration::from_millis(700));
+    if placing {
+        return;
+    }
+    let latest = LATEST.get_or_init(Mutex::default);
+    let first = latest.lock().unwrap_or_else(|p| p.into_inner()).insert(id.clone(), (at.x, at.y)).is_none();
+    if !first {
+        return;
+    }
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(Duration::from_millis(600)).await;
+        let Some((x, y)) = latest.lock().unwrap_or_else(|p| p.into_inner()).remove(&id) else { return };
+        if let Some(state) = app.try_state::<AppState>() {
+            state.settings.set(&format!("{POSITION_PREFIX}{id}"), &format!("{x},{y}"));
+        }
+    });
+}
+
 /// Build (or show) a plugin's window; `visible: false` builds it hidden, for a
 /// plugin restored at start that was watching in the background.
 fn open_window(app: &tauri::AppHandle, id: &str, visible: bool) -> Result<(), String> {
@@ -655,16 +797,16 @@ fn open_window(app: &tauri::AppHandle, id: &str, visible: bool) -> Result<(), St
     let (name, width, height) = host
         .with(id, |l| {
             let panel = l.manifest.ui.as_ref().and_then(|u| u.get("panel"));
-            let dim = |key: &str, default: f64| {
-                panel.and_then(|p| p.get(key)).and_then(Value::as_f64).unwrap_or(default).clamp(240.0, 1200.0)
+            let dim = |key: &str, default: f64, min: f64| {
+                panel.and_then(|p| p.get(key)).and_then(Value::as_f64).unwrap_or(default).clamp(min, 1200.0)
             };
-            (l.manifest.name.clone(), dim("width", 360.0), dim("height", 480.0))
+            (l.manifest.name.clone(), dim("width", 360.0, 240.0), dim("height", 480.0, MIN_PANEL_HEIGHT))
         })
         .ok_or("no such plugin")?;
     let label = format!("plugin-{id}");
     if let Some(window) = app.get_webview_window(&label) {
         if visible {
-            let _ = window.show();
+            show_in_place(app, &window, id, || crate::platform::window::show_on_top_without_focus(&window));
             let _ = window.set_focus();
         }
         return Ok(());
@@ -673,18 +815,26 @@ fn open_window(app: &tauri::AppHandle, id: &str, visible: bool) -> Result<(), St
         .initialization_script(format!("window.__A2_PLUGIN_ID__ = {};", serde_json::to_string(id).unwrap_or_default()))
         .title(format!("{name} (plugin)"))
         .inner_size(width, height + 30.0)
-        .min_inner_size(240.0, 200.0)
+        .min_inner_size(240.0, (height + 30.0).min(230.0))
         .decorations(false)
         .always_on_top(true)
         .resizable(true)
-        .visible(visible)
+        .visible(visible || crate::platform::window::HIDE_AFTER_BUILD)
+        .focused(visible)
         // Transparent, so the panel's opacity slider shows the game through it.
         .transparent(true)
         // No system border or shadow (Windows 11 draws both on a frameless
         // window): the page draws its own edge, which fades with the panel.
         .shadow(false)
         .build()
-        .map(|_| ())
+        .map(|window| {
+            if !visible && crate::platform::window::HIDE_AFTER_BUILD {
+                crate::platform::window::hide_without_focus(&window);
+            }
+            if let Some((x, y)) = saved_position(app, &window, id) {
+                let _ = window.set_position(tauri::PhysicalPosition::new(x, y));
+            }
+        })
         .map_err(|e| e.to_string())
 }
 
@@ -719,9 +869,9 @@ pub fn plugin_window(app: tauri::AppHandle, window: tauri::WebviewWindow, visibl
     let id = window_plugin(&window)?;
     require(&app, &id, "window")?;
     if visible {
-        crate::platform::window::show_on_top_without_focus(&window);
+        show_in_place(&app, &window, &id, || crate::platform::window::show_on_top_without_focus(&window));
     } else {
-        let _ = window.hide();
+        crate::platform::window::hide_without_focus(&window);
     }
     remember_window(&app, &id, Some(if visible { "shown" } else { "hidden" }));
     Ok(())
@@ -1047,7 +1197,22 @@ fn percent_decode(s: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{base64, content_policy, inline_page, inlined_policy};
+    use super::{base64, content_policy, inline_page, inlined_policy, take_ready, within_reach, Pending, SETTLE};
+    use std::time::{Duration, Instant};
+
+    #[test]
+    fn a_window_left_on_a_screen_goes_back_there_and_one_off_every_screen_does_not() {
+        // Two 1920x1080 screens side by side, the left with a 40 px taskbar.
+        let screens = [(0, 0, 1920, 1040), (1920, 0, 1920, 1080)];
+        assert!(within_reach(100, 100, 300, &screens));
+        assert!(within_reach(2500, 900, 300, &screens), "on the second screen");
+        assert!(within_reach(-250, 100, 300, &screens), "mostly off the left edge, 50 px still showing");
+        assert!(!within_reach(-280, 100, 300, &screens), "20 px showing is not enough to grab");
+        assert!(!within_reach(4000, 100, 300, &screens), "where a third screen was");
+        assert!(!within_reach(100, -20, 300, &screens), "its bar above the top");
+        assert!(!within_reach(100, 1020, 300, &screens), "its bar behind the taskbar");
+        assert!(within_reach(4000, 100, 300, &[]), "no screens known: trust the saved place");
+    }
 
     #[test]
     fn a_page_gets_its_own_scripts_styles_and_images_inlined() {
@@ -1103,5 +1268,35 @@ mod tests {
         assert!(policy.contains("connect-src 'none'"));
         // A path that is not a plugin id adds no folder.
         assert!(!content_policy("../x").contains("/../x/"));
+    }
+
+    fn event(plugin: &str, name: &str, settle: bool, at: Instant) -> Pending {
+        Pending { at, settle, read_ms: 0, plugin: plugin.into(), event: name.into(), data: serde_json::Value::Null }
+    }
+
+    fn names(events: &[Pending]) -> Vec<&str> {
+        events.iter().map(|p| p.event.as_str()).collect()
+    }
+
+    /// A soul pickup (immediate) goes at once, unless the login's pet list,
+    /// which waits for the character record, came before it: then it waits
+    /// behind it, so the list never replaces counts the pickup already raised.
+    #[test]
+    fn an_immediate_event_goes_at_once_but_not_ahead_of_its_plugins_waiting_ones() {
+        let now = Instant::now();
+        let mut pending = vec![event("pets", "soul", false, now), event("cube", "spawn", false, now)];
+        assert_eq!(names(&take_ready(&mut pending, now)), ["soul", "spawn"]);
+        assert!(pending.is_empty());
+
+        let mut pending = vec![
+            event("pets", "list", true, now),
+            event("pets", "soul", false, now),
+            event("cube", "spawn", false, now),
+        ];
+        assert_eq!(names(&take_ready(&mut pending, now)), ["spawn"], "another plugin's event isn't held");
+        assert_eq!(names(&pending), ["list", "soul"]);
+        let later = now + SETTLE + Duration::from_millis(1);
+        assert_eq!(names(&take_ready(&mut pending, later)), ["list", "soul"]);
+        assert!(pending.is_empty());
     }
 }

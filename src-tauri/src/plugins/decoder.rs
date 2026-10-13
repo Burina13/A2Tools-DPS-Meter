@@ -38,6 +38,11 @@ pub struct DecoderSpec {
     /// A field that must be the player's own entity id (see the module docs).
     #[serde(default, rename = "self")]
     pub self_field: Option<String>,
+    /// Sent as soon as it is read, even to a plugin told the character,
+    /// whose events otherwise wait for the login's character record (see
+    /// `SETTLE` in the plugin host). For records that never come at login.
+    #[serde(default)]
+    pub immediate: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -62,6 +67,8 @@ pub struct Decoder {
     fields: Vec<FieldSpec>,
     /// The field that must be the player's own entity id, if any.
     pub self_field: Option<String>,
+    /// Never waits for the character record.
+    pub immediate: bool,
 }
 
 impl Decoder {
@@ -92,7 +99,7 @@ impl Decoder {
                 return Err(format!("decoder {}: \"self\" must name one of its number fields", spec.name));
             }
         }
-        Ok(Self { name: spec.name.clone(), opcode, fields: spec.fields.clone(), self_field: spec.self_field.clone() })
+        Ok(Self { name: spec.name.clone(), opcode, fields: spec.fields.clone(), self_field: spec.self_field.clone(), immediate: spec.immediate })
     }
 
     /// Decode a frame's body (the bytes after its type) into the fields.
@@ -211,6 +218,29 @@ mod tests {
         Decoder::compile(&serde_json::from_str(json).unwrap()).unwrap()
     }
 
+    /// A player with more than 127 pets: the game sends the list's count as a
+    /// varint, two bytes from 128 on (`87 01` = 135, from a player's log,
+    /// 2026-10-13). Read as a u8 the whole list came out one byte off.
+    #[test]
+    fn a_varint_count_past_127() {
+        let d = spec(r#"{"name":"pet-list","opcode":"00 90","fields":[
+            {"type":"skip:4"},
+            {"name":"levels","type":"list","count":"varint","fields":[
+                {"name":"pet","type":"u32"},{"type":"skip:4"},{"name":"level","type":"u32"}]}]}"#);
+        let mut body = vec![0x13, 0x05, 0, 0, 0x87, 0x01];
+        for i in 0..135u32 {
+            body.extend((1001 + i).to_le_bytes());
+            body.extend((1001 + i).to_le_bytes());
+            body.extend((1 + i % 3).to_le_bytes());
+        }
+        let v = d.decode(&body).unwrap();
+        let levels = v["levels"].as_array().unwrap();
+        assert_eq!(levels.len(), 135);
+        assert_eq!(levels[0]["pet"], 1001);
+        assert_eq!(levels[134]["pet"], 1135);
+        assert_eq!(levels[134]["level"], 3);
+    }
+
     #[test]
     fn reads_a_soul_gain() {
         let d = spec(r#"{"name":"soul-gained","opcode":"0D 90","fields":[
@@ -266,5 +296,13 @@ mod tests {
         for json in bad {
             assert!(Decoder::compile(&serde_json::from_str(json).unwrap()).is_err(), "{json}");
         }
+    }
+
+    /// `immediate` is read when set and off by default; a meter without it
+    /// ignores the key.
+    #[test]
+    fn immediate_is_off_unless_set() {
+        assert!(!spec(r#"{"name":"a","opcode":"0D 90","fields":[]}"#).immediate);
+        assert!(spec(r#"{"name":"a","opcode":"0D 90","immediate":true,"fields":[]}"#).immediate);
     }
 }

@@ -611,6 +611,21 @@ fn get_settings(state: tauri::State<'_, AppState>) -> std::collections::HashMap<
     state.settings.get_all()
 }
 
+/// How often the DPS update is checked for a change: Settings > Advanced,
+/// "Meter update rate", one of `DPS_RATES_MS`.
+const DPS_RATE_KEY: &str = "dpsMeter.updateRateMs";
+const DPS_RATE_DEFAULT_MS: u64 = 200;
+const DPS_RATES_MS: [u64; 4] = [100, 200, 250, 500];
+/// An unchanged DPS update is sent again after this long.
+const DPS_RESEND: Duration = Duration::from_secs(2);
+
+fn dps_rate_ms(settings: &Settings) -> u64 {
+    settings.get(DPS_RATE_KEY)
+        .and_then(|v| v.trim().parse::<u64>().ok())
+        .filter(|ms| DPS_RATES_MS.contains(ms))
+        .unwrap_or(DPS_RATE_DEFAULT_MS)
+}
+
 /// Store a setting and tell every window about it.
 ///
 /// Settings are edited in their own window, so without this broadcast the meter
@@ -618,6 +633,7 @@ fn get_settings(state: tauri::State<'_, AppState>) -> std::collections::HashMap<
 /// "Round DPS" would appear to do nothing until the app restarted. Only real
 /// changes are emitted (see `Settings::set`), so the originating window's echo
 /// stops here rather than bouncing between windows.
+
 /// The All Targets time range (Settings), in milliseconds.
 const ALL_TARGETS_WINDOW_KEY: &str = "dpsMeter.allTargetsWindowMs";
 
@@ -1475,7 +1491,11 @@ async fn show_event_toast(app: tauri::AppHandle, title: String, body: String) ->
 /// Send Logs to Dev and the update prompt.
 #[tauri::command]
 fn build_features() -> serde_json::Value {
-    serde_json::json!({ "online": cfg!(feature = "online") })
+    // A development build started with A2_DEV_SUPPORTER set acts as a
+    // supporter's account (bar textures), to test those without one. A
+    // release build ignores it.
+    let dev_supporter = cfg!(debug_assertions) && std::env::var_os("A2_DEV_SUPPORTER").is_some();
+    serde_json::json!({ "online": cfg!(feature = "online"), "devSupporter": dev_supporter })
 }
 
 #[tauri::command]
@@ -2671,6 +2691,12 @@ pub fn run() {
         // Closing the meter quits, even with Details, History or a kept
         // Settings window still open.
         .on_window_event(|window, event| {
+            // Plugin windows open where they were left.
+            if let tauri::WindowEvent::Moved(at) = event
+                && window.label().starts_with("plugin-")
+            {
+                crate::plugins::note_moved(window.app_handle(), window.label(), *at);
+            }
             if window.label() == "main"
                 && let tauri::WindowEvent::CloseRequested { api, .. } = event
             {
@@ -2910,18 +2936,31 @@ pub fn run() {
             });
             apply_global_hotkeys(app.handle());
 
-            // Periodic DPS update emission (every 500ms)
-            let handle = app.handle().clone();
+            // DPS to the windows, checked at the meter update rate (200 ms
+            // unless changed in Settings > Advanced) and sent when it changed
+            // (and every DPS_RESEND when it didn't). Without new damage the
+            // calculator returns its cached result; with it, replaying a
+            // 36-minute fight took at most 0.86 ms per update. Most of the
+            // cost is the windows redrawing, which is why the rate is a choice.
+            let handle_dps = app.handle().clone();
             tauri::async_runtime::spawn(async move {
-                let mut interval = tokio::time::interval(Duration::from_millis(500));
+                let handle = handle_dps;
+                let mut rate_ms = DPS_RATE_DEFAULT_MS;
+                let mut interval = tokio::time::interval(Duration::from_millis(rate_ms));
                 interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-                let mut tick_count: u64 = 0;
-                let mut hide_delay: u64 = 0; // ticks to wait before hiding
+                // The last update sent, and when: an unchanged one is sent
+                // again only every DPS_RESEND.
+                let mut last_dps: Option<serde_json::Value> = None;
+                let mut last_dps_at = std::time::Instant::now();
                 loop {
                     interval.tick().await;
-                    tick_count += 1;
-
                     if let Some(state) = handle.try_state::<AppState>() {
+                        let wanted = dps_rate_ms(&state.settings);
+                        if wanted != rate_ms {
+                            rate_ms = wanted;
+                            interval = tokio::time::interval(Duration::from_millis(rate_ms));
+                            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+                        }
                         let t0 = std::time::Instant::now();
                         let calculation_handle = handle.clone();
                         let result = crate::blocking::DPS_TICK.run(move || {
@@ -2936,7 +2975,16 @@ pub fn run() {
                         match result {
                             Ok((dps, lock_ms, calc_ms)) => {
                                 let emitting = std::time::Instant::now();
-                                let _ = handle.emit("dps-update", &dps);
+                                // Every window copies the update and turns it into
+                                // text; idle, it was the same each time. Sent when
+                                // it changed, else every few seconds, and a window
+                                // asks for the current one as it opens.
+                                let dps = serde_json::to_value(&dps).unwrap_or_default();
+                                if last_dps.as_ref() != Some(&dps) || last_dps_at.elapsed() >= DPS_RESEND {
+                                    let _ = handle.emit("dps-update", &dps);
+                                    last_dps = Some(dps);
+                                    last_dps_at = std::time::Instant::now();
+                                }
                                 let emit_ms = emitting.elapsed().as_millis();
                                 let total_ms = t0.elapsed().as_millis();
                                 if total_ms > 200 {
@@ -2948,8 +2996,30 @@ pub fn run() {
                             Err(error) => tracing::warn!("DPS update failed: {error}"),
                         }
 
+                    }
+                }
+            });
+
+            // Housekeeping every 500 ms: ping, auto-hide, window positions.
+            let handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                let mut interval = tokio::time::interval(Duration::from_millis(500));
+                interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+                let mut tick_count: u64 = 0;
+                let mut hide_delay: u64 = 0; // ticks to wait before hiding
+                let mut last_ping: Option<u64> = None;
+                loop {
+                    interval.tick().await;
+                    tick_count += 1;
+
+                    if let Some(state) = handle.try_state::<AppState>() {
+                        // The ping changes about every 10 s; sent when it does,
+                        // and every 2 s for a window opened since.
                         if let Some(ping) = state.ping_tracker.current_ping_ms() {
-                            let _ = handle.emit("ping-update", ping);
+                            if last_ping != Some(ping as u64) || tick_count % 4 == 0 {
+                                last_ping = Some(ping as u64);
+                                let _ = handle.emit("ping-update", ping);
+                            }
                         }
 
                         // --- Auto-hide when AION2 loses focus (every tick) ---

@@ -460,6 +460,7 @@ mod tests {
                 skills: Vec::new(),
                 ping_history: Vec::new(),
                 heal_skills: Vec::new(),
+                deaths: None,
             },
             actors,
             is_train: false,

@@ -1,3 +1,27 @@
+// The figure beside a player's name, in the meter and in Details: combat
+// power in thousands the way players quote it ("889k"; below 500 the raw
+// number, since "0k" says nothing) or gear score in full. Empty when the party
+// roster never named the player: only your own party's members are on it.
+// Shared with details.js, which loads after this file.
+const partyStatText = (row, stat) => {
+  if (stat === "off") return "";
+  if (stat === "gearScore") {
+    const gearScore = Number(row?.gearScore) || 0;
+    return gearScore > 0 ? gearScore.toLocaleString() : "";
+  }
+  const combatPower = Number(row?.combatPower) || 0;
+  if (combatPower <= 0) return "";
+  const thousands = Math.round(combatPower / 1000);
+  return thousands > 0 ? `${thousands.toLocaleString()}k` : combatPower.toLocaleString();
+};
+
+// A row's texture offset, 0-719px, the same every time for the same id.
+const textureOffsetFor = (id) => {
+  let hash = 2166136261;
+  for (const ch of String(id)) hash = Math.imul(hash ^ ch.charCodeAt(0), 16777619);
+  return (hash >>> 0) % 720;
+};
+
 const createMeterUI = ({
   elList,
   dpsFormatter,
@@ -9,6 +33,8 @@ const createMeterUI = ({
   getSortDirection,
   getPinUserToTop,
   getPlayerLimit,
+  getPartyStat,
+  getJobColor,
 }) => {
   const MAX_CACHE = 32;
   const cjkRegex = /[\u3400-\u9FFF\uF900-\uFAFF]/;
@@ -21,11 +47,20 @@ const createMeterUI = ({
 
   const nowMs = () => (typeof performance !== "undefined" ? performance.now() : Date.now());
 
+  // Forget what each row last drew, so the next refresh redraws it (the
+  // party stat setting changed).
+  const invalidateRows = () => {
+    for (const view of rowViewById.values()) view.lastCombatPowerText = undefined;
+  };
+
   const createRowView = (id) => {
     const rowEl = document.createElement("div");
     rowEl.className = "item";
     rowEl.style.display = "none";
     rowEl.dataset.rowId = String(id);
+    // Where this row's bar texture starts with "Offset textures" on: a place
+    // of its own, from its id, so it stays put as rows change places.
+    rowEl.style.setProperty("--tex-x", `${-textureOffsetFor(id)}px`);
 
     // The bar spans the full row, so 100% reads as 100%. The readout keeps
     // its own scrim (see .dps in styles.css) for where the bar passes behind.
@@ -253,12 +288,19 @@ const createMeterUI = ({
     const needsReorder = orderKey !== lastOrderKey;
     lastOrderKey = orderKey;
 
-    for (const { row, id } of validRows) {
+    for (const [pos, { row, id }] of validRows.entries()) {
       nextVisibleIds.add(id);
 
       const view = getRowView(id);
       view.currentRow = row;
       view.lastSeenAt = now;
+
+      // The row's place from the top, for themes that colour bars by it
+      // (Spectrum, Aurora in styles.css).
+      if (view.lastPos !== pos) {
+        view.rowEl.style.setProperty("--row-pos", String(pos));
+        view.lastPos = pos;
+      }
 
       if (!view.isVisible) {
         view.rowEl.style.display = "";
@@ -304,18 +346,9 @@ const createMeterUI = ({
         view.lastIsCjk = isCjk;
       }
 
-      // Combat power sits beside the name, abbreviated to thousands the way
-      // players quote it — 889,100 reads as "889k", 889,545 as "890k". The
-      // exact figure stays on the row for the details panel. Below 500 the
-      // abbreviation would collapse to "0k", so show the raw number there.
-      const combatPower = Number(row.combatPower) || 0;
-      const combatPowerK = Math.round(combatPower / 1000);
-      const combatPowerText =
-        combatPower <= 0
-          ? ""
-          : combatPowerK > 0
-            ? `${combatPowerK.toLocaleString()}k`
-            : combatPower.toLocaleString();
+      // Beside the name: combat power or gear score, as Settings → Meter
+      // Settings says (partyStatText, above).
+      const combatPowerText = partyStatText(row, getPartyStat?.());
       if (view.lastCombatPowerText !== combatPowerText) {
         view.combatPowerEl.textContent = combatPowerText;
         view.combatPowerEl.style.display = combatPowerText ? "" : "none";
@@ -324,6 +357,15 @@ const createMeterUI = ({
 
       // "Unknown" is a row whose class is not known yet: no icon, rather than
       // a broken image of a file that does not exist (issue #9).
+      // The class's colour, for a theme that colours each bar by class
+      // ("AION2 (class colours)"); the others leave it unused.
+      const classColor = (row.job && getJobColor?.(row.job)) || "";
+      if (view.lastClassColor !== classColor) {
+        if (classColor) view.rowEl.style.setProperty("--class-fill", classColor);
+        else view.rowEl.style.removeProperty("--class-fill");
+        view.lastClassColor = classColor;
+      }
+
       if (row.job && row.job !== "Unknown") {
         if (!classIconSrcByJob.has(row.job)) {
           classIconSrcByJob.set(row.job, `./assets/${row.job}.png`);
@@ -476,5 +518,5 @@ const createMeterUI = ({
     return view?.currentRow || null;
   };
 
-  return { updateFromRows, onResetMeterUi, getRowById };
+  return { updateFromRows, onResetMeterUi, getRowById, invalidateRows };
 };

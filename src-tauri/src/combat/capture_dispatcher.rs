@@ -46,6 +46,14 @@ const TLS_VERSIONS: [u8; 5] = [0x00, 0x01, 0x02, 0x03, 0x04];
 const WINDOW_CHECK_STOPPED_MS: i64 = 10_000;
 const WINDOW_CHECK_RUNNING_MS: i64 = 60_000;
 const STALE_CONNECTION_MS: i64 = 120_000;
+/// Once locked, the game's stream on another device takes over the lock when
+/// the locked device has carried nothing from the game's port for this long
+/// and the other one sustains the lock's signature rate. A relay or ping
+/// reducer repeats the stream on a second device while the locked one stays
+/// busy, so it never moves the lock; a VPN connecting mid-session, or an
+/// instance server routed differently, does. Before this the meter waited
+/// STALE_CONNECTION_MS, missing two minutes of a raid.
+const DEVICE_MOVE_QUIET_MS: i64 = 5_000;
 /// While no port is locked, how often to log what the capture is seeing. Before
 /// the lock every gate is silent, so without this a meter that never locks
 /// leaves a log that cannot say why.
@@ -161,6 +169,10 @@ impl CaptureDispatcher {
         let mut window_logged: Option<bool> = None;
         let mut unlocked_stats = UnlockedStats::default();
         let mut last_unlocked_report_ms = now_ms();
+        // Locked: when the game's port last sent on the locked device, and the
+        // signature rate of that port on other devices (see DEVICE_MOVE_QUIET_MS).
+        let mut last_on_locked_device_ms: i64 = 0;
+        let mut elsewhere: HashMap<String, (u32, i64)> = HashMap::new();
 
         while let Some(cap) = receiver.recv().await {
             if self.suspended.load(Ordering::SeqCst) {
@@ -229,9 +241,44 @@ impl CaptureDispatcher {
 
             // Device filter
             if let Some(ref dev) = locked_device {
-                if !device_matches(dev, cap.device_name.as_deref()) {
-                    continue;
+                // Counted from the lock: a relay's second copy of the stream
+                // right after it doesn't move it.
+                if last_on_locked_device_ms == 0 {
+                    last_on_locked_device_ms = now;
                 }
+                let from_game_port = current_port.is_some_and(|port| cap.src_port == port);
+                if !device_matches(dev, cap.device_name.as_deref()) {
+                    let Some(other) = cap.device_name.as_deref().map(str::trim).filter(|d| !d.is_empty()) else { continue };
+                    if !from_game_port || !contains_any(&cap.data, &COMBAT_SIGNATURES) {
+                        continue;
+                    }
+                    // A device picked in Settings stays the one captured: the
+                    // lock never moves off it to another.
+                    if self.port_detector.preferred_device().is_some_and(|pref| !device_matches(&pref, Some(other))) {
+                        continue;
+                    }
+                    let slot = elsewhere.entry(other.to_string()).or_insert((0, now));
+                    if now - slot.1 > SIGNATURE_WINDOW_MS {
+                        slot.0 = 0;
+                    }
+                    slot.0 += 1;
+                    slot.1 = now;
+                    let quiet = now - last_on_locked_device_ms >= DEVICE_MOVE_QUIET_MS;
+                    if slot.0 < SIGNATURE_LOCK_THRESHOLD || !quiet {
+                        continue;
+                    }
+                    // The stream continues on the other device; its own
+                    // connection gets a fresh assembler below.
+                    self.port_detector.move_device(other);
+                    elsewhere.clear();
+                    assemblers.clear();
+                    last_on_locked_device_ms = now;
+                } else if from_game_port {
+                    last_on_locked_device_ms = now;
+                }
+            } else {
+                last_on_locked_device_ms = 0;
+                elsewhere.clear();
             }
 
             // Preferred device filter

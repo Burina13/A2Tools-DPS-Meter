@@ -124,6 +124,19 @@ pub struct PingPoint {
     pub ping_ms: i32,
 }
 
+/// A player dying during a fight, ms from its first hit (Details marks it on
+/// the DPS chart).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct DeathPoint {
+    pub actor_id: i32,
+    pub ts_ms: i64,
+    /// When they were back up, ms from the fight's first hit; none if they
+    /// stayed down to the end. The chart greys their line in between.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub revived_ms: Option<i64>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TargetDetailsResponse {
@@ -141,6 +154,10 @@ pub struct TargetDetailsResponse {
     /// `dmg` = heal amount, `time` = tick count, `is_dot` = HoT. Empty for old files.
     #[serde(default)]
     pub heal_skills: Vec<DetailSkillEntry>,
+    /// The players who died in this fight, and when. None where not known:
+    /// a fight saved before deaths were (Details shows "-"), or a summary.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub deaths: Option<Vec<DeathPoint>>,
 }
 
 #[cfg(test)]

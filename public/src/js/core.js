@@ -1,7 +1,26 @@
 const SETTING_CHOICES = {
   defaultMeterMode: { allowed: ["bossTargets", "lastHitByMe", "allTargets", "trainTargets"], fallback: "bossTargets" },
   allTargetsWindowMs: { allowed: ["30000", "60000", "120000", "180000", "300000"], fallback: "120000" },
+  // How often the backend sends DPS (app.rs DPS_RATES_MS).
+  updateRateMs: { allowed: ["100", "200", "250", "500"], fallback: "200" },
   trainSelectionMode: { allowed: ["all", "highestDamage"], fallback: "all" },
+  // The figure beside each player's name, in the meter and in Details.
+  partyStat: { allowed: ["combatPower", "gearScore", "off"], fallback: "combatPower" },
+  // A pattern over the meter's bars: a supporter's perk (applyBarTexture).
+  barTexture: { allowed: ["none", "flames", "crystal", "glacier", "feathers", "wing", "storm", "nebula", "galaxy", "aura"], fallback: "none" },
+};
+// Themes whose bars differ from one another show those colours in the theme
+// menu: the class colours side by side, and the place-by-place sweeps
+// (styles.css: Spectrum, Aurora, Sunset).
+const THEME_PREVIEWS = {
+  // The vivid one: the class colours at full strength.
+  "aion2-classes-vivid": "linear-gradient(90deg, #4FD1C5 0.00% 11.11%, #5F8CFF 11.11% 22.22%, #41D98A 22.22% 33.33%, #7BE35A 33.33% 44.44%, #9A6BFF 44.44% 55.56%, #E06BFF 55.56% 66.67%, #F2C15A 66.67% 77.78%, #FF9A3D 77.78% 88.89%, #E85D5D 88.89% 100.00%)",
+  // The class colours as the meter draws them: about halfway between the
+  // colour and the panel (its bars run 30-62%).
+  "aion2-classes": "linear-gradient(90deg, #2b6b6b 0.00% 11.11%, #324a87 11.11% 22.22%, #246f4f 22.22% 33.33%, #407438 33.33% 44.44%, #4f3a87 44.44% 55.56%, #703a87 55.56% 66.67%, #796338 66.67% 77.78%, #7f512a 77.78% 88.89%, #743339 88.89% 100.00%)",
+  "aion2-spectrum": "linear-gradient(90deg, #e2504e, #e2a43c, #c9cf3a, #4fcf6a, #3cbfe0, #5a6ee8, #b05ae8)",
+  "aion2-aurora": "linear-gradient(90deg, #2fc9a8, #2f9fd9, #4f6fe0, #8a55e0, #c650c9, #e0508a)",
+  "aion2-sunset": "linear-gradient(90deg, #e8b83c, #e8823c, #e04a3a, #d83c78, #b03cc0, #7a48d8)",
 };
 const pickSettingChoice = (name, value) => {
   const { allowed, fallback } = SETTING_CHOICES[name];
@@ -21,6 +40,7 @@ const REMOTE_APPLIED_SETTING_CONTROLS = {
   "dpsMeter.showTtk": ".showTtkCheckbox",
   "dpsMeter.bossNameSize": ".bossNameSizeInput",
   "dpsMeter.showSupporterColors": ".showSupporterColorsCheckbox",
+  "dpsMeter.barTextureOffset": ".textureOffsetCheckbox",
   "dpsMeter.showSuspendBtn": ".showSuspendBtnCheckbox",
   "dpsMeter.showLockBtn": ".showLockBtnCheckbox",
   // Set from the main window by the account offer.
@@ -48,8 +68,13 @@ class DpsApp {
       userName: "dpsMeter.userName",
       onlyShowUser: "dpsMeter.onlyShowUser",
       allTargetsWindowMs: "dpsMeter.allTargetsWindowMs",
+      updateRateMs: "dpsMeter.updateRateMs",
       trainSelectionMode: "dpsMeter.trainSelectionMode",
+      partyStat: "dpsMeter.partyStat",
+      barTexture: "dpsMeter.barTexture",
+      barTextureOffset: "dpsMeter.barTextureOffset",
       meterFillOpacity: "dpsMeter.meterFillOpacity",
+      meterFillSaturation: "dpsMeter.meterFillSaturation",
       barGap: "dpsMeter.barGap",
       detailsBackgroundOpacity: "dpsMeter.detailsBackgroundOpacity",
       detailsFontSize: "dpsMeter.detailsFontSize",
@@ -108,6 +133,11 @@ class DpsApp {
     this.theme = "aion2";
     this.availableThemes = [
       "aion2",
+      "aion2-classes",
+      "aion2-classes-vivid",
+      "aion2-spectrum",
+      "aion2-aurora",
+      "aion2-sunset",
       "asmodian",
       "cogni",
       "elyos",
@@ -181,6 +211,10 @@ class DpsApp {
     this._lastRenderedRowsSummary = null;
     this.localPlayerId = null;
     this.trainSelectionMode = "all";
+    this.partyStat = "combatPower";
+    this.barTexture = "none";
+    // Whether the signed-in A2 Tools account is a supporter's (bar textures).
+    this.isSupporter = false;
     this._detailsFlashTimer = null;
     this._meterFlashTimer = null;
     this._recentLocalIdByName = new Map();
@@ -293,7 +327,7 @@ class DpsApp {
       });
       return;
     }
-    this.elList = document.querySelector(".list");
+    this.elList = document.querySelector(".list:not(.barPreviewList)");
     this.elBossName = document.querySelector(".bossName");
     this.elBossName.textContent = this.getDefaultTargetLabel();
     this._lastRenderedTargetLabel = this.elBossName.textContent;
@@ -327,6 +361,8 @@ class DpsApp {
       getSortDirection: () => this.listSortDirection,
       getPinUserToTop: () => this.pinMeToTop,
       getPlayerLimit: () => this.playerLimit,
+      getPartyStat: () => this.partyStat,
+      getJobColor: (job) => this.getJobColor(job),
       onHoverUserRow: (row, event) => {
         if (this.shouldSuppressRowInteractions()) return;
         this.openHoverDetailsRow(row, event);
@@ -462,6 +498,8 @@ class DpsApp {
       getDetails: (row, options) => this.getDetails(row, options),
       getDetailsContext: () => this.getDetailsContext(),
       getDungeonId: () => this.lastDungeonId,
+      getPartyStat: () => this.partyStat,
+      getJobColor: (job) => this.getJobColor(job),
       onPinnedRowChange: (rowId) => {
         const nextId = Number(rowId);
         this.pinnedDetailsRowId = Number.isFinite(nextId) && nextId > 0 ? nextId : null;
@@ -1131,7 +1169,10 @@ class DpsApp {
 
       this._lastBattleTimeMs = null;
       this._battleTimeVisible = false;
-      this.battleTime.setVisible(false);
+      // A status message keeps the line shown: hiding it here only for
+      // updateConnectionStatusUi to show it again changed the window's classes
+      // every 100 ms, each change a layout and a window-size check.
+      this.battleTime.setVisible(!!this._connectionStatusOverride);
       this.updateConnectionStatusUi();
       return;
     }
@@ -1155,7 +1196,8 @@ class DpsApp {
 
       const shouldBeVisible = this._battleTimeVisible && !this.isCollapse;
 
-      this.battleTime.setVisible(shouldBeVisible);
+      // As above: a status message keeps the line shown.
+      this.battleTime.setVisible(shouldBeVisible || !!this._connectionStatusOverride);
       if (shouldBeVisible) {
         this.battleTime.update(now, this._lastBattleTimeMs);
       }
@@ -1456,6 +1498,7 @@ class DpsApp {
       // Combat power comes from the party roster packet, so it only exists for
       // players actually in your party; 0 means "unknown", not "zero CP".
       const combatPower = Math.trunc(Number(isObj ? value.combatPower : 0)) || 0;
+      const gearScore = Math.trunc(Number(isObj ? value.gearScore : 0)) || 0;
 
       rows.push({
         id: String(id),
@@ -1465,6 +1508,7 @@ class DpsApp {
         totalDamage,
         damageContribution,
         combatPower,
+        gearScore,
         isUser: (!!name && name === this.USER_NAME) || (hasLocalId && numericId === localId),
         isIdentifying,
         // Resolved in Rust against a downloaded roster; the frontend only
@@ -1567,6 +1611,9 @@ class DpsApp {
       }
       const pane = document.querySelector(".settingsPane");
       if (pane) pane.scrollTop = 0;
+      // Which section is open, for what shows beside it (Appearance's bar preview).
+      const body = document.querySelector(".settingsBody");
+      if (body) body.dataset.section = key;
     };
     const steps = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 };
     for (const item of items) {
@@ -1616,6 +1663,26 @@ class DpsApp {
     document.documentElement.style.setProperty("--meter-fill-opacity", String(normalized / 100));
     if (persist) {
       this.safeSetSetting(this.storageKeys.meterFillOpacity, String(normalized));
+    }
+  }
+
+  // The bars' colour strength, 0% (grey) to 200%, 100% as the theme draws it.
+  normalizeMeterSaturation(value, fallback = 100) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric) || String(value ?? "").trim() === "") return fallback;
+    return Math.min(200, Math.max(0, Math.round(numeric / 5) * 5));
+  }
+
+  applyMeterFillSaturation(percent, { persist } = {}) {
+    const normalized = this.normalizeMeterSaturation(percent, 100);
+    const root = document.documentElement.style;
+    root.setProperty("--meter-fill-saturation", String(normalized / 100));
+    // Stronger colour also turns brighter, toward neon, and white text on it
+    // harder to read: above 100% the bar darkens a little as it goes, to 85%
+    // at 200%, so it reads as a deeper colour instead.
+    root.setProperty("--meter-fill-brightness", String(1 - Math.max(0, normalized - 100) / 100 * 0.15));
+    if (persist) {
+      this.safeSetSetting(this.storageKeys.meterFillSaturation, String(normalized));
     }
   }
 
@@ -2190,6 +2257,8 @@ class DpsApp {
       perActorStats,
       showCombinedTotals: !attackerIds || attackerIds.length === 0,
       pingHistory: Array.isArray(detailObj?.pingHistory) ? detailObj.pingHistory : [],
+      // Players who died in the fight (ms from its start), for the DPS chart.
+      deaths: Array.isArray(detailObj?.deaths) ? detailObj.deaths : null,
     };
   }
 
@@ -2350,6 +2419,7 @@ class DpsApp {
 
     if (!signedIn) {
       this.setAccountState(window.i18n?.t?.("settings.account.signedOut", "Not signed in"));
+      this.setSupporter(false);
       return;
     }
     const name = who.displayName || who.display_name || "";
@@ -2361,6 +2431,7 @@ class DpsApp {
     if (who.supporter) {
       label += " · " + window.i18n?.t?.("settings.account.supporter", "Supporter");
     }
+    this.setSupporter(who.supporter);
     this.setAccountState(label);
   }
 
@@ -2373,7 +2444,15 @@ class DpsApp {
     this.localActorIdInput = document.querySelector(".localActorIdInput");
     this.allTargetsWindowDropdownBtn = document.querySelector(".allTargetsWindowDropdownBtn");
     this.allTargetsWindowDropdownMenu = document.querySelector(".allTargetsWindowDropdownMenu");
+    this.updateRateDropdownBtn = document.querySelector(".updateRateDropdownBtn");
+    this.updateRateDropdownMenu = document.querySelector(".updateRateDropdownMenu");
     this.trainSelectionModeDropdownBtn = document.querySelector(".trainSelectionModeDropdownBtn");
+    this.partyStatDropdownBtn = document.querySelector(".partyStatDropdownBtn");
+    this.barTextureDropdownBtn = document.querySelector(".barTextureDropdownBtn");
+    this.barTextureDropdownMenu = document.querySelector(".barTextureDropdownMenu");
+    this.barTextureHint = document.querySelector(".barTextureHint");
+    this.textureOffsetCheckbox = document.querySelector(".textureOffsetCheckbox");
+    this.partyStatDropdownMenu = document.querySelector(".partyStatDropdownMenu");
     this.trainSelectionModeDropdownMenu = document.querySelector(".trainSelectionModeDropdownMenu");
     this.defaultMeterModeDropdownBtn = document.querySelector(".defaultMeterModeDropdownBtn");
     this.defaultMeterModeDropdownMenu = document.querySelector(".defaultMeterModeDropdownMenu");
@@ -2410,6 +2489,8 @@ class DpsApp {
     this.playerDpsBoldCheckbox = document.querySelector(".playerDpsBoldCheckbox");
     this.meterOpacityInput = document.querySelector(".meterOpacityInput");
     this.meterOpacityValue = document.querySelector(".meterOpacityValue");
+    this.meterSaturationInput = document.querySelector(".meterSaturationInput");
+    this.meterSaturationValue = document.querySelector(".meterSaturationValue");
     this.bossNameSizeInput = document.querySelector(".bossNameSizeInput");
     this.bossNameSizeValue = document.querySelector(".bossNameSizeValue");
     this.windowOpacityInput = document.querySelector(".windowOpacityInput");
@@ -2439,6 +2520,8 @@ class DpsApp {
       defaultMeterMode: "bossTargets",
       allTargetsWindowMs: "120000",
       trainSelectionMode: "all",
+      partyStat: "combatPower",
+      barTexture: "none",
     };
 
     // The meter already applied these settings. Opening a form must not change
@@ -2448,6 +2531,7 @@ class DpsApp {
     const storedAllTargetsWindowMs = this.safeGetSetting(this.storageKeys.allTargetsWindowMs) ||
       this.safeGetStorage(this.storageKeys.allTargetsWindowMs) ||
       "120000";
+    const storedPartyStat = this.safeGetSetting(this.storageKeys.partyStat) || "combatPower";
     const storedTrainSelectionMode = this.safeGetSetting(this.storageKeys.trainSelectionMode) ||
       this.safeGetStorage(this.storageKeys.trainSelectionMode) ||
       "all";
@@ -2571,6 +2655,8 @@ class DpsApp {
       });
     }
 
+    this.settingsSelections.updateRateMs = pickSettingChoice("updateRateMs", this.safeGetSetting(this.storageKeys.updateRateMs));
+    this.applyUpdateRate(this.settingsSelections.updateRateMs);
     const selectedWindow = pickSettingChoice("allTargetsWindowMs", storedAllTargetsWindowMs);
     this.settingsSelections.allTargetsWindowMs = selectedWindow;
     if (syncBackend) {
@@ -2578,6 +2664,14 @@ class DpsApp {
       window.javaBridge?.setAllTargetsWindowMs?.(selectedWindow);
     }
 
+    this.partyStat = pickSettingChoice("partyStat", storedPartyStat);
+    this.settingsSelections.partyStat = this.partyStat;
+    this.syncPreviewPartyStat();
+    this.barTexture = pickSettingChoice("barTexture", this.safeGetSetting(this.storageKeys.barTexture));
+    this.settingsSelections.barTexture = this.barTexture;
+    this.applyBarTexture(this.barTexture);
+    this.setTextureOffset(this.safeGetSetting(this.storageKeys.barTextureOffset) === "true");
+    this.refreshSupporterStatus();
     const selectedMode = pickSettingChoice("trainSelectionMode", storedTrainSelectionMode);
     this.trainSelectionMode = selectedMode;
     this.settingsSelections.trainSelectionMode = selectedMode;
@@ -2886,6 +2980,22 @@ class DpsApp {
         const next = this.normalizeMeterOpacity(value, defaultOpacity);
         this.meterOpacityValue.textContent = `${next}%`;
         this.applyMeterFillOpacity(next, { persist: true });
+      });
+    }
+    // Applied in every window (the meter draws the bars); the slider is
+    // Settings' only.
+    const resolvedSaturation = this.normalizeMeterSaturation(this.safeGetSetting(this.storageKeys.meterFillSaturation));
+    this.applyMeterFillSaturation(resolvedSaturation, { persist: false });
+    if (this.meterSaturationInput && this.meterSaturationValue) {
+      this.meterSaturationInput.value = String(resolvedSaturation);
+      this.meterSaturationValue.textContent = `${resolvedSaturation}%`;
+      const stopDrag = (event) => event.stopPropagation();
+      this.meterSaturationInput.addEventListener("mousedown", stopDrag);
+      this.meterSaturationInput.addEventListener("touchstart", stopDrag, { passive: true });
+      this.meterSaturationInput.addEventListener("input", (event) => {
+        const next = this.normalizeMeterSaturation(event.target?.value);
+        this.meterSaturationValue.textContent = `${next}%`;
+        this.applyMeterFillSaturation(next, { persist: true });
       });
     }
 
@@ -3321,6 +3431,17 @@ class DpsApp {
 
     const themeOptions = [
       { value: "aion2", label: this.i18n?.t("settings.theme.options.aion2", "AION2") },
+      {
+        value: "aion2-classes",
+        label: this.i18n?.t("settings.theme.options.aion2Classes", "AION2 (class colours)"),
+      },
+      {
+        value: "aion2-classes-vivid",
+        label: this.i18n?.t("settings.theme.options.aion2ClassesVivid", "AION2 (class colours, vivid)"),
+      },
+      { value: "aion2-spectrum", label: this.i18n?.t("settings.theme.options.aion2Spectrum", "Spectrum") },
+      { value: "aion2-aurora", label: this.i18n?.t("settings.theme.options.aion2Aurora", "Aurora") },
+      { value: "aion2-sunset", label: this.i18n?.t("settings.theme.options.aion2Sunset", "Sunset") },
       { value: "asmodian", label: this.i18n?.t("settings.theme.options.asmodian", "Asmodian") },
       { value: "cogni", label: this.i18n?.t("settings.theme.options.cogni", "Cogni") },
       { value: "elyos", label: this.i18n?.t("settings.theme.options.elyos", "Elyos") },
@@ -3333,6 +3454,12 @@ class DpsApp {
     ];
 
     themeOptions.sort((a, b) => a.label.localeCompare(b.label));
+    // The vivid class colours straight after the regular ones, whatever the sort.
+    const vividAt = themeOptions.findIndex((o) => o.value === "aion2-classes-vivid");
+    if (vividAt >= 0) {
+      const [vivid] = themeOptions.splice(vividAt, 1);
+      themeOptions.splice(themeOptions.findIndex((o) => o.value === "aion2-classes") + 1, 0, vivid);
+    }
 
     const allTargetsWindowOptions = [
       { value: "30000", label: this.i18n?.t("settings.allTargetsWindow.options.30s", "30 seconds") },
@@ -3347,6 +3474,20 @@ class DpsApp {
       { value: "bossTargets", label: "BOSS" },
       { value: "allTargets", label: "ALL" },
       { value: "trainTargets", label: "TRAIN" },
+    ];
+
+    const barTextureOptions = SETTING_CHOICES.barTexture.allowed.map((value) => ({
+      value,
+      label: this.i18n?.t(`settings.barTexture.options.${value}`, value[0].toUpperCase() + value.slice(1)),
+    }));
+    // By name in the reader's language, None first.
+    barTextureOptions.sort((a, b) =>
+      a.value === "none" ? -1 : b.value === "none" ? 1 : a.label.localeCompare(b.label));
+
+    const partyStatOptions = [
+      { value: "combatPower", label: this.i18n?.t("settings.partyStat.options.combatPower", "Combat power") },
+      { value: "gearScore", label: this.i18n?.t("settings.partyStat.options.gearScore", "Gear score") },
+      { value: "off", label: this.i18n?.t("settings.partyStat.options.off", "Off") },
     ];
 
     const trainModeOptions = [
@@ -3385,14 +3526,14 @@ class DpsApp {
         // stylesheet so the theme control matches every other dropdown.
         decorateItem: (item, value) => {
           const colors = previewThemeVars(value);
-          item.style.background = colors.rowFill;
+          item.style.background = THEME_PREVIEWS[value] || colors.rowFill;
           item.style.opacity = "1";
           item.style.color = colors.textColor;
           item.style.textShadow = colors.nameShadow;
         },
         decorateButton: (button, value) => {
           const colors = previewThemeVars(value);
-          button.style.background = colors.rowFill;
+          button.style.background = THEME_PREVIEWS[value] || colors.rowFill;
           button.style.opacity = "1";
           button.style.color = colors.textColor;
           button.style.textShadow = colors.nameShadow;
@@ -3401,6 +3542,25 @@ class DpsApp {
             textEl.style.textShadow = colors.nameShadow;
           }
         },
+      }
+    );
+
+    setupDropdown(
+      this.updateRateDropdownBtn,
+      this.updateRateDropdownMenu,
+      [
+        { value: "100", label: this.i18n?.t("settings.updateRate.options.100", "0.1 s") },
+        { value: "200", label: this.i18n?.t("settings.updateRate.options.200", "0.2 s (default)") },
+        { value: "250", label: this.i18n?.t("settings.updateRate.options.250", "0.25 s") },
+        { value: "500", label: this.i18n?.t("settings.updateRate.options.500", "0.5 s") },
+      ],
+      this.settingsSelections.updateRateMs,
+      (value) => {
+        if (!value) return;
+        this.settingsSelections.updateRateMs = value;
+        this.applyUpdateRate(value);
+        // The backend reads it from the settings on its next update.
+        this.safeSetSetting(this.storageKeys.updateRateMs, value);
       }
     );
 
@@ -3417,6 +3577,49 @@ class DpsApp {
         if (!this.isCollapse) this.fetchDps();
       }
     );
+
+    setupDropdown(
+      this.partyStatDropdownBtn,
+      this.partyStatDropdownMenu,
+      partyStatOptions,
+      this.settingsSelections.partyStat,
+      (value) => {
+        if (!value) return;
+        this.settingsSelections.partyStat = value;
+        this.applyPartyStat(value);
+        this.safeSetSetting(this.storageKeys.partyStat, value);
+      }
+    );
+
+    setupDropdown(
+      this.barTextureDropdownBtn,
+      this.barTextureDropdownMenu,
+      barTextureOptions,
+      this.settingsSelections.barTexture,
+      (value) => {
+        if (!value || !this.isSupporter) return;
+        this.settingsSelections.barTexture = value;
+        this.applyBarTexture(value);
+        this.safeSetSetting(this.storageKeys.barTexture, value);
+      },
+      {
+        // Each row, and the button, drawn as a bar with its texture (styles.css).
+        decorateItem: (item, value) => {
+          item.dataset.texture = value;
+        },
+        decorateButton: (button, value) => {
+          button.dataset.texture = value;
+        },
+      }
+    );
+    this.syncBarTextureControl();
+    if (this.textureOffsetCheckbox) {
+      this.textureOffsetCheckbox.checked = this.textureOffset;
+      this.textureOffsetCheckbox.addEventListener("change", (event) => {
+        this.setTextureOffset(!!event.target?.checked);
+        this.safeSetSetting(this.storageKeys.barTextureOffset, String(this.textureOffset));
+      });
+    }
 
     setupDropdown(
       this.trainSelectionModeDropdownBtn,
@@ -4363,6 +4566,7 @@ class DpsApp {
     // that would persist them again. A focused slider keeps its draft.
     for (const [name, value] of [
       ["meterFillOpacity", get("meterFillOpacity")],
+      ["meterFillSaturation", get("meterFillSaturation")],
       ["windowOpacity", get("windowOpacity")],
       ["barGap", get("barGap")],
     ]) {
@@ -4582,6 +4786,7 @@ class DpsApp {
   setSlimMode(enabled, { persist = false } = {}) {
     this.slimMode = !!enabled;
     document.querySelector(".meter")?.classList.toggle("slim", this.slimMode);
+    document.querySelector(".barPreviewPanel")?.classList.toggle("slim", this.slimMode);
     this.fitBossName();
     this.syncSettingsDropdownSelection(this.meterLayoutDropdownBtn, this.meterLayoutDropdownMenu, this.getMeterLayout());
     if (window.A2_VIEW === "main") window.javaBridge?.updateOverlaySize?.();
@@ -4826,6 +5031,83 @@ class DpsApp {
   //
   // Custom dropdowns and live appearance values apply directly: replaying
   // their edit handlers would write back or resend backend combat parameters.
+  // Combat power or gear score beside each name: the meter rows redraw on
+  // their next refresh, an open Details panel redraws its party list now.
+  // The bars' texture: drawn only for a supporter's account (styles.css,
+  // [data-bar-texture]); the choice is kept either way.
+  applyBarTexture(value) {
+    this.barTexture = pickSettingChoice("barTexture", value);
+    const data = document.documentElement?.dataset;
+    if (!data) return;
+    if (this.isSupporter && this.barTexture !== "none") data.barTexture = this.barTexture;
+    else delete data.barTexture;
+  }
+
+  // The bars glide to a new length in five steps (styles.css), over the
+  // time between updates or 200 ms, whichever is shorter.
+  applyUpdateRate(ms) {
+    const glide = Math.min(Number(ms) || 200, 200);
+    document.documentElement?.style.setProperty("--bar-glide", `${glide}ms`);
+  }
+
+  // "Offset textures": each bar starts its texture at a place of its own
+  // (meter.js sets --tex-x per row; styles.css uses it with this on).
+  setTextureOffset(on) {
+    this.textureOffset = !!on;
+    const data = document.documentElement?.dataset;
+    if (!data) return;
+    if (this.textureOffset) data.textureOffset = "";
+    else delete data.textureOffset;
+  }
+
+  // Settings' texture row: open to a supporter, else greyed out with a note.
+  syncBarTextureControl() {
+    if (this.barTextureDropdownBtn) this.barTextureDropdownBtn.disabled = !this.isSupporter;
+    if (this.textureOffsetCheckbox) this.textureOffsetCheckbox.disabled = !this.isSupporter;
+    if (this.barTextureHint) this.barTextureHint.hidden = this.isSupporter;
+  }
+
+  setSupporter(isSupporter) {
+    // A development build may act as a supporter (build_features devSupporter).
+    this.isSupporter = !!isSupporter || this.devSupporter === true;
+    this.applyBarTexture(this.barTexture);
+    this.syncBarTextureControl();
+  }
+
+  // Whether the signed-in account is a supporter's: the last check's answer
+  // at once, then the server's. Run at start and when the account changes.
+  async refreshSupporterStatus() {
+    if ((await window.a2BuildReady)?.devSupporter) {
+      this.devSupporter = true;
+      this.setSupporter(true);
+    }
+    try {
+      const seen = await window.javaBridge?.accountStatusCached?.();
+      if (seen) this.setSupporter(seen.who?.supporter);
+      const who = await window.javaBridge?.accountStatus?.();
+      this.setSupporter(who?.supporter);
+    } catch {
+      // Offline or signed out: keep what was known.
+    }
+  }
+
+  // Settings' bar preview shows the same figure beside each name, or none.
+  syncPreviewPartyStat() {
+    for (const el of document.querySelectorAll(".barPreviewList .combatPower")) {
+      const text = this.partyStat === "gearScore" ? el.dataset.gearScore : el.dataset.combatPower;
+      el.textContent = this.partyStat === "off" ? "" : text || "";
+      el.hidden = this.partyStat === "off";
+    }
+  }
+
+  applyPartyStat(value) {
+    this.partyStat = pickSettingChoice("partyStat", value);
+    this.syncPreviewPartyStat();
+    this.meterUI?.invalidateRows?.();
+    this.detailsUI?.refreshPartyStat?.();
+    if (!this.isCollapse) this.fetchDps?.();
+  }
+
   applyRemoteSettingChange(key, value) {
     // A name typed in the Settings window. That window already told the
     // backend; this one only has to stop believing the old name, or it would
@@ -4863,6 +5145,12 @@ class DpsApp {
       if (this.barGapValue && document.activeElement !== this.barGapInput) this.barGapValue.textContent = `${shown}px`;
       return;
     }
+    if (key === this.storageKeys.meterFillSaturation) {
+      const normalized = this.normalizeMeterSaturation(value);
+      this.applyMeterFillSaturation(normalized, { persist: false });
+      this.syncSettingsRangeValue(this.meterSaturationInput, this.meterSaturationValue, normalized);
+      return;
+    }
     if (key === this.storageKeys.meterFillOpacity || key === this.storageKeys.windowOpacity) {
       const meterFill = key === this.storageKeys.meterFillOpacity;
       const numeric = Number(value);
@@ -4893,6 +5181,9 @@ class DpsApp {
       defaultMeterMode: "defaultMeterMode",
       trainSelectionMode: "trainSelectionMode",
       allTargetsWindowMs: "allTargetsWindow",
+      updateRateMs: "updateRate",
+      partyStat: "partyStat",
+      barTexture: "barTexture",
     };
     for (const [name, control] of Object.entries(choices)) {
       if (key !== this.storageKeys[name]) continue;
@@ -4904,6 +5195,12 @@ class DpsApp {
         if (window.A2_VIEW === "main") window.javaBridge?.updateOverlaySize?.();
       } else if (name === "trainSelectionMode") {
         this.trainSelectionMode = normalized;
+      } else if (name === "partyStat") {
+        this.applyPartyStat(normalized);
+      } else if (name === "barTexture") {
+        this.applyBarTexture(normalized);
+      } else if (name === "updateRateMs") {
+        this.applyUpdateRate(normalized);
       }
       this.syncSettingsDropdownSelection(this[`${control}DropdownBtn`], this[`${control}DropdownMenu`], normalized);
       return;
@@ -5375,7 +5672,14 @@ class DpsApp {
     this.clearConnectionStatusOverride();
   }
 
+  // Called every 100 ms while idle. Writing the same text again still
+  // replaces the text node, and WebKit then lays out and repaints the window
+  // each time; only a change is written.
   applyConnectionStatusOverride(text) {
+    const root = this.battleTimeRoot.classList;
+    if (this._connectionStatusOverride && this.analysisStatusEl.textContent === text
+        && this.analysisStatusEl.style.display === "" && root.contains("isVisible")
+        && root.contains("state-idle")) return;
     this._connectionStatusOverride = true;
     this.battleTimeRoot.classList.add("isVisible", "state-idle");
     this.analysisStatusEl.textContent = text;
