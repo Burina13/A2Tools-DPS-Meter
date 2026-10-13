@@ -249,11 +249,13 @@
   })();
 
   // --- DPS data polling via events ---
-  // The Rust backend emits "dps-update" when it changes (checked every 500ms,
+  // The Rust backend emits "dps-update" when it changes (checked every 100ms,
   // and sent again every 2 s while it doesn't).
-  // We cache the latest snapshot so getDpsData() can return it synchronously.
+  // We cache the latest snapshot so getDpsData() can return it synchronously,
+  // and draw it now rather than at the meter's next 100 ms poll.
   if (viewMode !== "settings") listen("dps-update", (event) => {
     cachedDpsJson = JSON.stringify(event.payload);
+    window._dpsApp?.fetchDps?.();
     // NOTE: do NOT pre-fetch get_details_context here. It clones the full combat
     // aggregate and runs O(targets×actors×skills) work; firing it every 500ms
     // (even with the details panel closed) was a major source of CPU lag that
