@@ -35,11 +35,14 @@ jobs:
           Invoke-WebRequest $msi.browser_download_url -OutFile new.msi
           # The fork's last old-identity build.
           Invoke-WebRequest "$repo/party-v2.2.0/A2Tools-DPS-Meter_2.2.0_x64_en-US.msi" -OutFile old-party.msi
-          # The genuine upstream meter, pinned by the checksum its manifest names.
-          $manifest = Invoke-RestMethod "https://a2tools.app/latest-v2.json"
-          Invoke-WebRequest $manifest.msiUrl -OutFile upstream.msi
-          $hash = (Get-FileHash upstream.msi -Algorithm SHA256).Hash.ToLower()
-          if ($hash -ne $manifest.msiSha256) { throw "upstream MSI checksum mismatch" }
+          # The genuine upstream meter, from upstream's own GitHub releases.
+          # (a2tools.app sits behind a Cloudflare managed challenge that blocks
+          # GitHub runners, so the manifest + its checksum are unreachable here;
+          # upstream's release asset is the same authoritative artifact.)
+          $up = Invoke-RestMethod "https://api.github.com/repos/taengu/A2Tools-DPS-Meter/releases/latest"
+          $upMsi = $up.assets | Where-Object name -like "*.msi" | Select-Object -First 1
+          Invoke-WebRequest $upMsi.browser_download_url -OutFile upstream.msi
+          Write-Host "upstream: $($up.tag_name) / $($upMsi.name)"
           Get-ChildItem *.msi
 
       - name: Install the old party build, then the rebranded one over it
