@@ -211,6 +211,29 @@ mod tests {
         Decoder::compile(&serde_json::from_str(json).unwrap()).unwrap()
     }
 
+    /// A player with more than 127 pets: the game sends the list's count as a
+    /// varint, two bytes from 128 on (`87 01` = 135, from a player's log,
+    /// 2026-10-13). Read as a u8 the whole list came out one byte off.
+    #[test]
+    fn a_varint_count_past_127() {
+        let d = spec(r#"{"name":"pet-list","opcode":"00 90","fields":[
+            {"type":"skip:4"},
+            {"name":"levels","type":"list","count":"varint","fields":[
+                {"name":"pet","type":"u32"},{"type":"skip:4"},{"name":"level","type":"u32"}]}]}"#);
+        let mut body = vec![0x13, 0x05, 0, 0, 0x87, 0x01];
+        for i in 0..135u32 {
+            body.extend((1001 + i).to_le_bytes());
+            body.extend((1001 + i).to_le_bytes());
+            body.extend((1 + i % 3).to_le_bytes());
+        }
+        let v = d.decode(&body).unwrap();
+        let levels = v["levels"].as_array().unwrap();
+        assert_eq!(levels.len(), 135);
+        assert_eq!(levels[0]["pet"], 1001);
+        assert_eq!(levels[134]["pet"], 1135);
+        assert_eq!(levels[134]["level"], 3);
+    }
+
     #[test]
     fn reads_a_soul_gain() {
         let d = spec(r#"{"name":"soul-gained","opcode":"0D 90","fields":[
