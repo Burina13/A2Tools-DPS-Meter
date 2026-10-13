@@ -236,10 +236,12 @@ function createEventAlertsCore({
       const next = core.nextOccurrence(ev, t);
       const sk = lang === "sk";
       if (!next) return sk ? "Žiadny známy termín" : "No known time";
-      const when = new Date(next.ts * 1000).toLocaleTimeString(
-        sk ? "sk-SK" : "en-US",
-        { hour: "numeric", minute: "2-digit" }
-      );
+      const locale = sk ? "sk-SK" : "en-US";
+      // More than a day away: say the weekday too, "14:30" alone misleads.
+      const opts = next.ts - t >= 86400 && !next.running
+        ? { weekday: "short", hour: "numeric", minute: "2-digit" }
+        : { hour: "numeric", minute: "2-digit" };
+      const when = new Date(next.ts * 1000).toLocaleString(locale, opts);
       if (next.running) return sk ? `Prebieha (od ${when})` : `Open now (since ${when})`;
       const mins = Math.max(1, Math.round((next.ts - t) / 60));
       const inTxt = mins >= 120
