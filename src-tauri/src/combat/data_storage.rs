@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
 use std::sync::Arc;
 
@@ -33,6 +33,9 @@ const PARTY_PLACEHOLDER_MS: i64 = 10 * 60 * 1000;
 /// lead-in, which ran a wiped pull's damage into the next pull (Gargaum,
 /// 2026-07 capture: 114M derived for a 69M pull).
 const NEVER_MS: i64 = i64::MIN;
+/// Deaths kept for Details' DPS chart (`Inner::death_log`): far more than
+/// a session's fights need, small enough never to matter.
+const MAX_DEATHS: usize = 2_000;
 /// How often, in damage records, unnamed party members are matched to the
 /// roster by class. A fight brings a few hundred records a second, so this
 /// names them within the first moments of combat.
@@ -491,6 +494,14 @@ struct Inner {
     actor_power_scalars: HashMap<i32, HashSet<i32>>,
     hostile_target_ids: HashSet<i32>,
     dead_entity_ids: HashSet<i32>,
+    /// Every death with its time and, once back up, the revive's: monsters'
+    /// (`42 36` flag 3) and party members' (`note_hp`). Details marks the
+    /// players' on its DPS chart. The last `MAX_DEATHS` only.
+    death_log: VecDeque<(i32, i64, Option<i64>)>,
+    /// Each party member's last HP (`1b 92`): falling to 0 from above is a
+    /// death. The game sends no `42 36` death for a player (Ultimate Berk,
+    /// 2026-10-11: 184 monster deaths, not one of the four that died).
+    last_hp: HashMap<i32, i32>,
     /// Linked summons that left the world (`42 36` flag 7). Their damage over
     /// time ticks on, but the game's Damage Analyzer counts no tick after the
     /// spirit is gone, so the meter does not either. Kept through a reset, like
@@ -610,6 +621,8 @@ impl DataStorage {
                 actor_power_scalars: HashMap::new(),
                 hostile_target_ids: HashSet::new(),
                 dead_entity_ids: HashSet::new(),
+                death_log: VecDeque::new(),
+                last_hp: HashMap::new(),
                 despawned_summon_ids: HashSet::new(),
                 boss_entity_ids: HashSet::new(),
                 training_dummy_ids: HashSet::new(),
@@ -1290,6 +1303,48 @@ impl DataStorage {
         let mut inner = self.inner.write();
         inner.dead_entity_ids.insert(entity_id);
         inner.hp_floored_ids.remove(&entity_id);
+        inner.death_log.push_back((entity_id, now_ms(), None));
+        while inner.death_log.len() > MAX_DEATHS {
+            inner.death_log.pop_front();
+        }
+    }
+
+    /// A party member's HP (`1b 92`). Dropping to 0 from above logs a death;
+    /// coming back up (revived) arms the next one.
+    pub fn note_hp(&self, entity_id: i32, hp: i32) {
+        let mut inner = self.inner.write();
+        let before = inner.last_hp.insert(entity_id, hp);
+        if hp == 0 && before.is_some_and(|b| b > 0) {
+            inner.death_log.push_back((entity_id, now_ms(), None));
+            while inner.death_log.len() > MAX_DEATHS {
+                inner.death_log.pop_front();
+            }
+        } else if hp > 0 && before == Some(0) {
+            let now = now_ms();
+            if let Some(death) = inner.death_log.iter_mut().rev().find(|d| d.0 == entity_id && d.2.is_none()) {
+                death.2 = Some(now);
+            }
+        }
+    }
+
+    /// `note_hp` for a player only: yours or one known by name, never a
+    /// monster (whose deaths would crowd the players' out of the log).
+    pub fn note_player_hp(&self, entity_id: i32, hp: i32) {
+        {
+            let inner = self.inner.read();
+            let is_player = inner.local_player_id == Some(entity_id as i64)
+                || inner.known_player_ids.contains(&entity_id);
+            if !is_player || inner.mob_storage.contains_key(&entity_id) {
+                return;
+            }
+        }
+        self.note_hp(entity_id, hp);
+    }
+
+    /// The deaths from `from` to `to` (ms), oldest first: (entity, time, the
+    /// revive's time if they are back up).
+    pub fn deaths_between(&self, from: i64, to: i64) -> Vec<(i32, i64, Option<i64>)> {
+        self.inner.read().death_log.iter().filter(|d| d.1 >= from && d.1 <= to).copied().collect()
     }
 
     /// `id` left the world. Only a linked summon is marked: see
@@ -2396,6 +2451,21 @@ fn is_mob(inner: &Inner, id: i32) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn your_own_and_a_known_players_hp_log_deaths_and_a_strangers_does_not() {
+        let storage = DataStorage::new();
+        storage.set_local_player_id(Some(2695));
+        storage.append_nickname_authoritative(14106, "Faffy");
+        crate::clock::set_override(Some(1_000));
+        for id in [2695, 14106, 777] { storage.note_player_hp(id, 9_000); }
+        crate::clock::set_override(Some(2_000));
+        for id in [2695, 14106, 777] { storage.note_player_hp(id, 0); }
+        crate::clock::set_override(Some(42_000));
+        storage.note_player_hp(2695, 12_419); // you are revived 40 s later
+        crate::clock::set_override(None);
+        assert_eq!(storage.deaths_between(0, 50_000), vec![(2695, 2_000, Some(42_000)), (14106, 2_000, None)]);
+    }
 
     fn who(s: &DataStorage) -> (Option<i64>, Option<String>, bool) {
         (s.local_player_id(), s.local_character_name(), s.local_identity_from_game())

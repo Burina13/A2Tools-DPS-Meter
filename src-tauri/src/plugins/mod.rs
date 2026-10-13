@@ -765,9 +765,7 @@ fn open_window(app: &tauri::AppHandle, id: &str, visible: bool) -> Result<(), St
     let label = format!("plugin-{id}");
     if let Some(window) = app.get_webview_window(&label) {
         if visible {
-            show_in_place(app, &window, id, || {
-                let _ = window.show();
-            });
+            show_in_place(app, &window, id, || crate::platform::window::show_on_top_without_focus(&window));
             let _ = window.set_focus();
         }
         return Ok(());
@@ -780,7 +778,8 @@ fn open_window(app: &tauri::AppHandle, id: &str, visible: bool) -> Result<(), St
         .decorations(false)
         .always_on_top(true)
         .resizable(true)
-        .visible(visible)
+        .visible(visible || crate::platform::window::HIDE_AFTER_BUILD)
+        .focused(visible)
         // Transparent, so the panel's opacity slider shows the game through it.
         .transparent(true)
         // No system border or shadow (Windows 11 draws both on a frameless
@@ -788,6 +787,9 @@ fn open_window(app: &tauri::AppHandle, id: &str, visible: bool) -> Result<(), St
         .shadow(false)
         .build()
         .map(|window| {
+            if !visible && crate::platform::window::HIDE_AFTER_BUILD {
+                crate::platform::window::hide_without_focus(&window);
+            }
             if let Some((x, y)) = saved_position(app, &window, id) {
                 let _ = window.set_position(tauri::PhysicalPosition::new(x, y));
             }
@@ -828,7 +830,7 @@ pub fn plugin_window(app: tauri::AppHandle, window: tauri::WebviewWindow, visibl
     if visible {
         show_in_place(&app, &window, &id, || crate::platform::window::show_on_top_without_focus(&window));
     } else {
-        let _ = window.hide();
+        crate::platform::window::hide_without_focus(&window);
     }
     remember_window(&app, &id, Some(if visible { "shown" } else { "hidden" }));
     Ok(())

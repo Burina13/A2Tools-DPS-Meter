@@ -509,7 +509,7 @@ test('native travel area stays fixed during motion, is screen-clamped and shrink
       body: { classList: { contains: () => false } },
       querySelector: (selector) => selector === '.meter' ? { offsetWidth: 380, offsetHeight: 300, scrollHeight: 300 }
         : selector === '.hoverDetailsTooltip.isVisible' ? (bounds && { getBoundingClientRect: () => bounds })
-        : selector === '.list' ? { getBoundingClientRect: () => ({ right: 380, bottom: 260 }) } : null,
+        : selector === '.list:not(.barPreviewList)' ? { getBoundingClientRect: () => ({ right: 380, bottom: 260 }) } : null,
     },
     invoke: (command, args) => { sizes.push(args); return Promise.resolve(); },
   });
@@ -723,7 +723,7 @@ test("moving between rows keeps the native window size and leaving the meter shr
       body: { classList: { contains: () => false } },
       querySelector: (selector) => selector === '.meter' ? { offsetWidth: 380, offsetHeight: 300, scrollHeight: 300 }
         : selector === '.hoverDetailsTooltip.isVisible' ? (bounds && { getBoundingClientRect: () => bounds })
-        : selector === '.list' ? { getBoundingClientRect: () => ({ right: 380, bottom: 260 }) } : null,
+        : selector === '.list:not(.barPreviewList)' ? { getBoundingClientRect: () => ({ right: 380, bottom: 260 }) } : null,
     },
     invoke: (command, args) => { sizes.push(args); return Promise.resolve(); },
   });

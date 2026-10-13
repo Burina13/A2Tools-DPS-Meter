@@ -4,6 +4,7 @@
 // roster never named the player: only your own party's members are on it.
 // Shared with details.js, which loads after this file.
 const partyStatText = (row, stat) => {
+  if (stat === "off") return "";
   if (stat === "gearScore") {
     const gearScore = Number(row?.gearScore) || 0;
     return gearScore > 0 ? gearScore.toLocaleString() : "";
@@ -12,6 +13,13 @@ const partyStatText = (row, stat) => {
   if (combatPower <= 0) return "";
   const thousands = Math.round(combatPower / 1000);
   return thousands > 0 ? `${thousands.toLocaleString()}k` : combatPower.toLocaleString();
+};
+
+// A row's texture offset, 0-719px, the same every time for the same id.
+const textureOffsetFor = (id) => {
+  let hash = 2166136261;
+  for (const ch of String(id)) hash = Math.imul(hash ^ ch.charCodeAt(0), 16777619);
+  return (hash >>> 0) % 720;
 };
 
 const createMeterUI = ({
@@ -26,6 +34,7 @@ const createMeterUI = ({
   getPinUserToTop,
   getPlayerLimit,
   getPartyStat,
+  getJobColor,
 }) => {
   const MAX_CACHE = 32;
   const cjkRegex = /[\u3400-\u9FFF\uF900-\uFAFF]/;
@@ -49,6 +58,9 @@ const createMeterUI = ({
     rowEl.className = "item";
     rowEl.style.display = "none";
     rowEl.dataset.rowId = String(id);
+    // Where this row's bar texture starts with "Offset textures" on: a place
+    // of its own, from its id, so it stays put as rows change places.
+    rowEl.style.setProperty("--tex-x", `${-textureOffsetFor(id)}px`);
 
     // The bar spans the full row, so 100% reads as 100%. The readout keeps
     // its own scrim (see .dps in styles.css) for where the bar passes behind.
@@ -276,12 +288,19 @@ const createMeterUI = ({
     const needsReorder = orderKey !== lastOrderKey;
     lastOrderKey = orderKey;
 
-    for (const { row, id } of validRows) {
+    for (const [pos, { row, id }] of validRows.entries()) {
       nextVisibleIds.add(id);
 
       const view = getRowView(id);
       view.currentRow = row;
       view.lastSeenAt = now;
+
+      // The row's place from the top, for themes that colour bars by it
+      // (Spectrum, Aurora in styles.css).
+      if (view.lastPos !== pos) {
+        view.rowEl.style.setProperty("--row-pos", String(pos));
+        view.lastPos = pos;
+      }
 
       if (!view.isVisible) {
         view.rowEl.style.display = "";
@@ -338,6 +357,15 @@ const createMeterUI = ({
 
       // "Unknown" is a row whose class is not known yet: no icon, rather than
       // a broken image of a file that does not exist (issue #9).
+      // The class's colour, for a theme that colours each bar by class
+      // ("AION2 (class colours)"); the others leave it unused.
+      const classColor = (row.job && getJobColor?.(row.job)) || "";
+      if (view.lastClassColor !== classColor) {
+        if (classColor) view.rowEl.style.setProperty("--class-fill", classColor);
+        else view.rowEl.style.removeProperty("--class-fill");
+        view.lastClassColor = classColor;
+      }
+
       if (row.job && row.job !== "Unknown") {
         if (!classIconSrcByJob.has(row.job)) {
           classIconSrcByJob.set(row.job, `./assets/${row.job}.png`);

@@ -105,7 +105,8 @@
       "selfHealing": "自己回復",
       "multiHitDamage": "多段ヒットのダメージ",
       "multiHitHits": "多段ヒット",
-      "maxHp": "最大HP"
+      "maxHp": "最大HP",
+      "deaths": "死亡回数"
     },
     "titleFor": "対象",
     "titleVs": "対",
@@ -162,7 +163,10 @@
     "healTimingNote": "この戦闘には回復のタイミングがありません（古いバージョンで記録）。",
     "chart": {
       "bossHp": "ボスHP",
-      "ping": "Ping"
+      "ping": "Ping",
+      "death": "死亡",
+      "died": "死亡時刻",
+      "downFor": "戦闘不能"
     },
     "hpsChart": "秒間回復量",
     "sectionChart": "グラフ",
@@ -277,6 +281,11 @@
       "label": "カラーテーマ",
       "options": {
         "aion2": "AION2",
+        "aion2Classes": "AION2（クラス色）",
+        "aion2ClassesVivid": "AION2（クラス色・鮮やか）",
+        "aion2Spectrum": "スペクトル",
+        "aion2Aurora": "オーロラ",
+        "aion2Sunset": "夕焼け",
         "asmodian": "Asmodian",
         "cogni": "Cogni",
         "elyos": "Elyos",
@@ -288,6 +297,23 @@
         "varian": "Varian"
       }
     },
+    "textureOffset": "テクスチャをずらす",
+    "barTexture": {
+      "label": "バーの質感",
+      "supportersOnly": "サポーター限定：上の A2 Tools アカウントでログインすると使えます。",
+      "options": {
+        "none": "なし",
+        "flames": "炎",
+        "crystal": "霜の結晶",
+        "glacier": "氷河",
+        "feathers": "羽根",
+        "wing": "翼",
+        "storm": "嵐",
+        "nebula": "星雲",
+        "galaxy": "銀河",
+        "aura": "オーラ"
+      }
+    },
     "language": {
       "label": "言語"
     },
@@ -297,6 +323,8 @@
     "meterOpacity": {
       "label": "バーの不透明度"
     },
+    "barPreview": "プレビュー",
+    "meterSaturation": {"label": "バーの色の濃さ"},
     "bossNameSize": {
       "label": "タイトルの大きさ"
     },
@@ -335,7 +363,8 @@
       "label": "プレイヤー名の横",
       "options": {
         "combatPower": "戦闘力",
-        "gearScore": "装備スコア"
+        "gearScore": "装備スコア",
+        "off": "オフ"
       }
     },
     "trainingMode": {
@@ -388,8 +417,11 @@
       "showLockBtn": "メーターがマウスを無視し、クリックがゲームに届くようにするボタンです。",
       "windowOpacity": "メーター背景の透け具合です。バーと文字はそのままです。",
       "meterOpacity": "色付きのダメージバーの不透明度です。",
+      "meterSaturation": "バーの色の強さです。下げると柔らかく、上げるとより鮮やかになります。",
       "bossNameSize": "バーの上にあるボスまたはターゲット名の大きさです。",
       "partyStat": "メーターと詳細で各プレイヤー名の横に表示する数値。自分のパーティのメンバーにのみ表示されます。",
+      "barTexture": "メーターのバーに模様を付けます。A2 Tools を支援してくださった方へのお礼です。",
+      "textureOffset": "バーごとにテクスチャの開始位置を変え、どのバーも同じに見えないようにします。",
       "trainingMode": "トレーニングモードで詳細ウィンドウに表示するかかしです：すべてまとめて、または一番多く攻撃した1体だけ。",
       "allTargetsWindow": "全ターゲットモードで、最後のヒットからこの時間内に攻撃したすべての対象を合計します。",
       "debugLogging": "開発者が問題を調べるための診断ログを書き出します。",

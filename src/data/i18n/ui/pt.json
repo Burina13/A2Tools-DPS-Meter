@@ -105,7 +105,8 @@
       "selfHealing": "Autocura",
       "multiHitDamage": "Dano de golpes múltiplos",
       "multiHitHits": "Golpes múltiplos",
-      "maxHp": "HP máx."
+      "maxHp": "HP máx.",
+      "deaths": "Mortes"
     },
     "titleFor": "de",
     "titleVs": "contra",
@@ -162,7 +163,10 @@
     "healTimingNote": "Esta luta não tem tempos de cura (gravada por uma versão anterior).",
     "chart": {
       "bossHp": "HP do chefe",
-      "ping": "Ping"
+      "ping": "Ping",
+      "death": "Morte",
+      "died": "morreu em",
+      "downFor": "caído por"
     },
     "hpsChart": "Cura por segundo",
     "sectionChart": "Gráfico",
@@ -277,6 +281,11 @@
       "label": "Tema de cores",
       "options": {
         "aion2": "AION2",
+        "aion2Classes": "AION2 (cores de classe)",
+        "aion2ClassesVivid": "AION2 (cores de classe, vivas)",
+        "aion2Spectrum": "Espectro",
+        "aion2Aurora": "Aurora",
+        "aion2Sunset": "Pôr do sol",
         "asmodian": "Asmodian",
         "cogni": "Cogni",
         "elyos": "Elyos",
@@ -288,6 +297,23 @@
         "varian": "Varian"
       }
     },
+    "textureOffset": "Deslocar texturas",
+    "barTexture": {
+      "label": "Textura das barras",
+      "supportersOnly": "Para apoiadores: entre acima, em Conta A2 Tools, para usá-la.",
+      "options": {
+        "none": "Nenhuma",
+        "flames": "Chamas",
+        "crystal": "Cristal de gelo",
+        "glacier": "Geleira",
+        "feathers": "Penas",
+        "wing": "Asa",
+        "storm": "Tempestade",
+        "nebula": "Nebulosa",
+        "galaxy": "Galáxia",
+        "aura": "Aura"
+      }
+    },
     "language": {
       "label": "Idioma"
     },
@@ -297,6 +323,8 @@
     "meterOpacity": {
       "label": "Opacidade das barras"
     },
+    "barPreview": "Pré-visualização",
+    "meterSaturation": {"label": "Intensidade da cor"},
     "bossNameSize": {
       "label": "Tamanho do título"
     },
@@ -335,7 +363,8 @@
       "label": "Ao lado dos nomes",
       "options": {
         "combatPower": "Poder de combate",
-        "gearScore": "Pontuação de equipamento"
+        "gearScore": "Pontuação de equipamento",
+        "off": "Desativado"
       }
     },
     "trainingMode": {
@@ -388,8 +417,11 @@
       "showLockBtn": "Um botão que faz o medidor ignorar o mouse, para os cliques irem ao jogo.",
       "windowOpacity": "Quão transparente é o fundo do medidor. Barras e texto não mudam.",
       "meterOpacity": "Quão sólidas são as barras coloridas de dano.",
+      "meterSaturation": "A intensidade das cores das barras: menor para mais suave, maior para mais vívido.",
       "bossNameSize": "Tamanho do nome do chefe ou alvo acima das barras.",
       "partyStat": "O número ao lado do nome de cada jogador, no medidor e em Detalhes. Só os membros do seu grupo têm um.",
+      "barTexture": "Um padrão sobre as barras do medidor. Um agradecimento por apoiar o A2 Tools.",
+      "textureOffset": "Cada barra começa a textura num ponto diferente, para que não fiquem todas iguais.",
       "trainingMode": "No modo treino, quais bonecos a janela de detalhes mostra: todos juntos ou só o que você mais acerta.",
       "allTargetsWindow": "No modo Todos os alvos, o medidor soma cada alvo atingido dentro deste tempo antes do último golpe.",
       "debugLogging": "Grava um registro de diagnóstico que o desenvolvedor pode usar para encontrar problemas.",

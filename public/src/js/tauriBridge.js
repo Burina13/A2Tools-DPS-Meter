@@ -15,7 +15,7 @@
   window.a2Build = { online: true };
   window.a2BuildReady = invoke("build_features")
     .then((features) => {
-      window.a2Build = { online: features?.online !== false };
+      window.a2Build = { online: features?.online !== false, devSupporter: features?.devSupporter === true };
       document.documentElement.classList.toggle("a2-offline", !window.a2Build.online);
       return window.a2Build;
     })
@@ -291,6 +291,8 @@
     }
     window._dpsApp?.refreshAccountPanel?.(event?.payload);
     window._dpsApp?.onAccountPromoResult?.(event?.payload);
+    // Signed in or out: a supporter's bar textures come or go with it.
+    window._dpsApp?.refreshSupporterStatus?.();
   });
 
   // Settings was asked to open while already open; check the account again
@@ -445,6 +447,8 @@
           battleTime: Number(dps.battleTime) || 0,
           totalTargetDamage: results.reduce((sum, item) => sum + (Number(item.totalTargetDamage) || 0), 0),
           skills: mergeSkills("skills"), healSkills: mergeSkills("healSkills"), pingHistory: [],
+          // Each target's deaths are timed from its own start: none for several.
+          deaths: null,
         };
       }
       const issue = Array.isArray(result?.skills) && result.skills.length
@@ -1185,7 +1189,7 @@
     const tooltipBounds = tooltip?.getBoundingClientRect();
     // Reserve the tooltip's travel over the rows once. Resizing the native
     // window for every pointer position can stall WebKit/GTK and the compositor.
-    const listBounds = tooltip ? document.querySelector(".list")?.getBoundingClientRect() : null;
+    const listBounds = tooltip ? document.querySelector(".list:not(.barPreviewList)")?.getBoundingClientRect() : null;
     const room = spaceRightBelow();
     const tooltipW = tooltipBounds
       ? Math.ceil(Math.max(tooltipBounds.right, listBounds ? listBounds.right + 12 + tooltipBounds.width : 0)) + 8

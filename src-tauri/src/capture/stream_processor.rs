@@ -564,6 +564,9 @@ impl StreamProcessor {
         // Always store HP — the entity may not be in mob_data yet if spawn
         // packet arrived before the capture started
         self.data_storage.append_mob_hp(actor_id, hp_max_info.value);
+        // A party member's HP reaching 0 is how their death shows (Details'
+        // DPS chart marks it).
+        self.data_storage.note_hp(actor_id, hp_info.value);
 
         true
     }
@@ -636,6 +639,9 @@ impl StreamProcessor {
                 // Sanity bound: real HP is well under this; rejects misparses.
                 if cur <= 100_000_000 {
                     self.data_storage.set_mob_current_hp(id_info.value, cur as i32);
+                    // The same record carries players' HP, your own included
+                    // (`1b 92` has only the party's): their deaths and revives.
+                    self.data_storage.note_player_hp(id_info.value, cur as i32);
                 }
                 i = disc + 11;
                 continue;

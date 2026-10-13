@@ -15,6 +15,9 @@ use crate::i18n::lookup::{NpcLookup, SkillLookup};
 /// above the entity-id range (real ids top out at 9,999,999) so it can never
 /// collide, and stays positive because the frontend discards non-positive ids.
 const PARTY_ROW_ID_BASE: i32 = 90_000_000;
+/// A death this long after a fight's last hit still belongs to it: in a
+/// wipe the last of the party can fall after the boss's last damage.
+const DEATH_GRACE_MS: i64 = 5_000;
 
 /// The local player's ids (theirs and their summons'), the party's names,
 /// and what resolves an actor to a name: what `DpsCalculator::fight_is_ours`
@@ -1278,6 +1281,7 @@ impl DpsCalculator {
                 skills: Vec::new(),
                 ping_history: Vec::new(),
                 heal_skills: Vec::new(),
+                deaths: None,
             },
         };
 
@@ -1550,6 +1554,7 @@ impl DpsCalculator {
                 skills: skill_map.into_values().collect(),
                 ping_history: Vec::new(),
                 heal_skills: Vec::new(),
+                deaths: None,
             };
         }
 
@@ -1628,6 +1633,27 @@ impl DpsCalculator {
             .map(|(ts, ping)| PingPoint { ts_ms: ts - fight_start, ping_ms: ping })
             .collect();
 
+        // The players who died while the fight went on, or just after its last
+        // hit (a wipe), each under the id its rows use. A monster's death is
+        // left out: only a known player or a named actor is a player.
+        let known_players = self.data_storage.get_known_player_ids();
+        let deaths = self
+            .data_storage
+            .deaths_between(target_data.first_damage_time, target_data.last_damage_time + DEATH_GRACE_MS)
+            .into_iter()
+            .filter(|(id, _, _)| known_players.contains(id) || nickname_data.contains_key(id))
+            .map(|(id, t, revived)| {
+                let uid = *orphan_to_owner.get(&id).unwrap_or(&id);
+                let uid = *canonical.get(&resolve_nickname(uid, &nickname_data, &summon_data)).unwrap_or(&uid);
+                DeathPoint {
+                    actor_id: uid,
+                    ts_ms: (t - fight_start).min(battle_time),
+                    // Back up after the fight ended: down to its end.
+                    revived_ms: revived.map(|r| r - fight_start).filter(|&r| r <= battle_time),
+                }
+            })
+            .collect();
+
         TargetDetailsResponse {
             target_id,
             max_hp: self.data_storage.get_mob_hp_data().get(&target_id).copied().unwrap_or(0),
@@ -1637,6 +1663,7 @@ impl DpsCalculator {
             skills: skill_map.into_values().collect(),
             ping_history,
             heal_skills: heal_map.into_values().collect(),
+            deaths: Some(deaths),
         }
     }
 }
@@ -1737,6 +1764,7 @@ mod tests {
         full.max_hp = 0;
         full.heal_skills.clear();
         full.ping_history.clear();
+        full.deaths = None;
         for skill in &mut full.skills { skill.hit_timestamps.clear(); }
         full.skills.sort_by_key(|s| (s.actor_id, s.code, s.is_dot));
         summary.skills.sort_by_key(|s| (s.actor_id, s.code, s.is_dot));
@@ -1764,6 +1792,39 @@ mod tests {
         // Reading the summary must not strip the stored timeline.
         assert_eq!(calc.get_target_details(50_000, Some(&[2259])).skills.iter()
             .find(|s| !s.is_dot).unwrap().hit_timestamps.len(), 2);
+    }
+
+    #[test]
+    fn a_party_members_deaths_and_revives_are_marked_and_a_monsters_or_a_later_ones_are_not() {
+        let storage = Arc::new(DataStorage::new());
+        storage.append_nickname(2259, "Naicha");
+        storage.append_nickname(2260, "Faffy");
+        storage.append_damage(hit(2259, 50_000, 1_000));
+        storage.append_damage(hit(2260, 50_000, 9_000));
+        let at = |ms| crate::clock::set_override(Some(ms));
+        at(2_000);
+        storage.note_hp(2259, 5_000);
+        storage.note_hp(2260, 5_000);
+        at(4_000);
+        storage.note_hp(2259, 0); // Naicha dies (HP to 0) ...
+        at(4_500);
+        storage.note_hp(2259, 0); // ... (still down: no second death)
+        at(6_000);
+        storage.note_hp(2259, 2_500); // ... and is revived
+        at(5_000);
+        storage.mark_entity_dead(50_001); // a monster
+        at(8_500);
+        storage.note_hp(2260, 0); // Faffy dies and stays down
+        at(30_000);
+        storage.note_hp(2259, 0); // long after: another fight's
+        crate::clock::set_override(None);
+        let deaths = meter(&storage).get_target_details(50_000, None).deaths.unwrap();
+        assert_eq!(deaths, vec![
+            DeathPoint { actor_id: 2259, ts_ms: 3_000, revived_ms: Some(5_000) },
+            DeathPoint { actor_id: 2260, ts_ms: 7_500, revived_ms: None },
+        ]);
+        // A summary carries none, so its count reads as unknown, not 0.
+        assert!(meter(&storage).get_hover_details(50_000, None).deaths.is_none());
     }
 
     #[test]

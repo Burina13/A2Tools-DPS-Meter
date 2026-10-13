@@ -1407,7 +1407,11 @@ async fn fetch_url(url: String) -> Result<String, String> {
 /// Send Logs to Dev and the update prompt.
 #[tauri::command]
 fn build_features() -> serde_json::Value {
-    serde_json::json!({ "online": cfg!(feature = "online") })
+    // A development build started with A2_DEV_SUPPORTER set acts as a
+    // supporter's account (bar textures), to test those without one. A
+    // release build ignores it.
+    let dev_supporter = cfg!(debug_assertions) && std::env::var_os("A2_DEV_SUPPORTER").is_some();
+    serde_json::json!({ "online": cfg!(feature = "online"), "devSupporter": dev_supporter })
 }
 
 #[tauri::command]

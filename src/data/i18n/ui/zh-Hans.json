@@ -105,7 +105,8 @@
       "multiHitHits": "多段打击",
       "maxHp": "最大HP",
       "hits": "命中次数",
-      "selfHealing": "自我治疗"
+      "selfHealing": "自我治疗",
+      "deaths": "死亡次数"
     },
     "titleFor": "针对",
     "titleVs": "vs",
@@ -162,7 +163,10 @@
     "healTimingNote": "此战斗没有治疗时间数据（由旧版本记录）。",
     "chart": {
       "bossHp": "首领 HP",
-      "ping": "延迟"
+      "ping": "延迟",
+      "death": "死亡",
+      "died": "阵亡于",
+      "downFor": "倒地"
     },
     "hpsChart": "每秒治疗",
     "sectionChart": "图表",
@@ -282,6 +286,11 @@
       "label": "配色主题",
       "options": {
         "aion2": "AION2",
+        "aion2Classes": "AION2（职业颜色）",
+        "aion2ClassesVivid": "AION2（职业颜色，鲜艳）",
+        "aion2Spectrum": "光谱",
+        "aion2Aurora": "极光",
+        "aion2Sunset": "日落",
         "asmodian": "魔族",
         "cogni": "认知",
         "elyos": "天族",
@@ -293,6 +302,23 @@
         "varian": "瓦里安"
       }
     },
+    "textureOffset": "错开纹理",
+    "barTexture": {
+      "label": "条形纹理",
+      "supportersOnly": "支持者专属：在上方的 A2 Tools 账号中登录即可使用。",
+      "options": {
+        "none": "无",
+        "flames": "烈焰",
+        "crystal": "霜晶",
+        "glacier": "冰川",
+        "feathers": "羽毛",
+        "wing": "羽翼",
+        "storm": "雷暴",
+        "nebula": "星云",
+        "galaxy": "银河",
+        "aura": "灵光"
+      }
+    },
     "language": {
       "label": "语言"
     },
@@ -302,6 +328,8 @@
     "meterOpacity": {
       "label": "条形不透明度"
     },
+    "barPreview": "预览",
+    "meterSaturation": {"label": "条形颜色强度"},
     "bossNameSize": {
       "label": "标题大小"
     },
@@ -340,7 +368,8 @@
       "label": "玩家名称旁",
       "options": {
         "combatPower": "战斗力",
-        "gearScore": "装备分数"
+        "gearScore": "装备分数",
+        "off": "关闭"
       }
     },
     "trainingMode": {
@@ -395,8 +424,11 @@
       "showLockBtn": "让计量器忽略鼠标、点击直接作用于游戏的按钮。",
       "windowOpacity": "计量器背景的透明程度。条形和文字不受影响。",
       "meterOpacity": "彩色伤害条的不透明程度。",
+      "meterSaturation": "条形颜色的浓淡：调低更柔和，调高更鲜艳。",
       "bossNameSize": "条形上方首领或目标名称的大小。",
       "partyStat": "在计量器和详情中显示在每位玩家名称旁的数字。只有你自己队伍的成员才有。",
+      "barTexture": "为计量条加上纹理，感谢您对 A2 Tools 的支持。",
+      "textureOffset": "每条的纹理从不同位置开始，让各条看起来不一样。",
       "trainingMode": "训练模式下详情窗口显示哪些木桩：全部一起，或只显示你打得最多的那个。",
       "allTargetsWindow": "全部目标模式下，计量器汇总最后一次命中前这段时间内命中的所有目标。",
       "debugLogging": "写入开发者用于排查问题的诊断日志。",
