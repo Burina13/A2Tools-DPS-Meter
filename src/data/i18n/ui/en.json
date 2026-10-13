@@ -1,6 +1,6 @@
 {
   "header": {
-    "title": "A2Tools DPS Meter",
+    "title": "Tvoj Tatko DPS Meter",
     "display": {
       "dps": "DPS",
       "total": "DMG",
@@ -334,7 +334,9 @@
       "label": "Bar opacity"
     },
     "barPreview": "Preview",
-    "meterSaturation": {"label": "Bar colour strength"},
+    "meterSaturation": {
+      "label": "Bar colour strength"
+    },
     "bossNameSize": {
       "label": "Title size"
     },

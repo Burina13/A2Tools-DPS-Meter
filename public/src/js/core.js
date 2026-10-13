@@ -5768,7 +5768,7 @@ class DpsApp {
       }
       return this.i18n?.t("target.train", "Training Scarecrow") ?? "Training Scarecrow";
     }
-    return this.i18n?.t("header.title", "A2Tools DPS Meter") ?? "A2Tools DPS Meter";
+    return this.i18n?.t("header.title", "Tvoj Tatko DPS Meter") ?? "Tvoj Tatko DPS Meter";
   }
 
   // "Gatekeeper Pinopi · Level 2": a Nightmare boss's level is its own, and

@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "A2Tools DPS Meter",
+  "productName": "Tvoj Tatko DPS Meter",
   "version": "2.64.1",
-  "identifier": "com.a2tools.dps-meter",
+  "identifier": "sk.tvojtatko.dps-meter",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -13,7 +13,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "A2Tools DPS Meter",
+        "title": "Tvoj Tatko DPS Meter",
         "width": 400,
         "height": 300,
         "decorations": false,
@@ -53,6 +53,7 @@
   },
   "bundle": {
     "active": true,
+    "publisher": "Tvoj Tatko",
     "targets": ["msi"],
     "resources": [
       "../src/data"
@@ -67,7 +68,8 @@
     "windows": {
       "allowDowngrades": true,
       "wix": {
-        "template": "wix/main.wxs"
+        "template": "wix/main.wxs",
+        "upgradeCode": "746f8303-0e92-5346-b0c9-cee765cb281a"
       },
       "webviewInstallMode": {
         "type": "skip"

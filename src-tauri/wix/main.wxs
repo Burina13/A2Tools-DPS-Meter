@@ -53,6 +53,20 @@
             <MajorUpgrade Schedule="afterInstallInitialize" DowngradeErrorMessage="!(loc.DowngradeErrorMessage)" AllowSameVersionUpgrades="yes" />
         {{/if}}
 
+        <!-- Party fork: releases up to party-v2.2.0 still shipped under the
+             upstream identity ("A2Tools DPS Meter", upgrade code below, which
+             Tauri derives from the product name). This sweeps ONLY those two
+             party builds (2.1.0 and 2.2.0) when the rebranded meter installs,
+             so nobody ends up with both. The range stops short of upstream's
+             own 2.0.x line on purpose: a genuine A2Tools install is allowed
+             to stay side by side with this meter. -->
+        <Upgrade Id="{F3013531-00FD-5F56-8164-DA10E9760B91}">
+            <UpgradeVersion Minimum="2.1.0" IncludeMinimum="yes"
+                            Maximum="2.2.0" IncludeMaximum="yes"
+                            MigrateFeatures="no" OnlyDetect="no"
+                            Property="OLDPARTYBUILDFOUND" />
+        </Upgrade>
+
         <InstallExecuteSequence>
             <RemoveShortcuts>Installed AND NOT UPGRADINGPRODUCTCODE</RemoveShortcuts>
         </InstallExecuteSequence>
