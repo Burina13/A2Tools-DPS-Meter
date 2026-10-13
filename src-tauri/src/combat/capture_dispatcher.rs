@@ -241,6 +241,11 @@ impl CaptureDispatcher {
 
             // Device filter
             if let Some(ref dev) = locked_device {
+                // Counted from the lock: a relay's second copy of the stream
+                // right after it doesn't move it.
+                if last_on_locked_device_ms == 0 {
+                    last_on_locked_device_ms = now;
+                }
                 let from_game_port = current_port.is_some_and(|port| cap.src_port == port);
                 if !device_matches(dev, cap.device_name.as_deref()) {
                     let Some(other) = cap.device_name.as_deref().map(str::trim).filter(|d| !d.is_empty()) else { continue };
@@ -253,7 +258,7 @@ impl CaptureDispatcher {
                     }
                     slot.0 += 1;
                     slot.1 = now;
-                    let quiet = last_on_locked_device_ms == 0 || now - last_on_locked_device_ms >= DEVICE_MOVE_QUIET_MS;
+                    let quiet = now - last_on_locked_device_ms >= DEVICE_MOVE_QUIET_MS;
                     if slot.0 < SIGNATURE_LOCK_THRESHOLD || !quiet {
                         continue;
                     }
