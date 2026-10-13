@@ -1,6 +1,6 @@
 {
-  "version": "2.2.0",
-  "notes": "Real boss artwork in Event Alerts (portraits from the party log web), grey text badges instead of emoji placeholders. See CHANGELOG-PARTY.md.",
-  "msiUrl": "https://github.com/Burina13/A2Tools-DPS-Meter/releases/download/party-v2.2.0/A2Tools-DPS-Meter_2.2.0_x64_en-US.msi",
-  "msiSha256": "8121fd054c10c3e59c70cca5fb7b28e663edeb702e752f18908d9953db5e22e4"
+  "version": "2.64.1",
+  "notes": "Rebrand: Tvoj Tatko DPS Meter — own identity, installs beside the genuine A2Tools meter and upstream can never upgrade over us again. Upstream v2.0.64 merged. New 'Tvoj Tatko' section in Settings (server URL, personal key, connection test). See CHANGELOG-PARTY.md.",
+  "msiUrl": "https://github.com/Burina13/A2Tools-DPS-Meter/releases/download/party-v2.64.1/Tvoj-Tatko-DPS-Meter_2.64.1_x64_en-US.msi",
+  "msiSha256": "0b7eca3dd1c509998475fa6ab2881ec7d26b80d5a73a7f928556d1bb964eecf4"
 }
