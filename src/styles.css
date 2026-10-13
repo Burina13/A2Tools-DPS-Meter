@@ -6566,7 +6566,7 @@ html.a2-offline .historyUploadBtn {
    page has one vertical line from top to bottom.
    ============================================================ */
 .detailsPanel {
-  --details-sidebar-w: 300px;
+  --details-sidebar-w: var(--details-sidebar-set, 340px);
 }
 .detailsPanel .detailsBody {
   display: grid;
@@ -6674,6 +6674,42 @@ html.a2-offline .historyUploadBtn {
   background: var(--isUser-fill);
 }
 .detailsPanel .detailsSplitter:focus-visible {
+  outline: none;
+}
+
+/* The bar between the sidebar and the skills: drag it to set the sidebar's
+   width, which is also the timeline's gutter. It sits on the sidebar's edge. */
+.detailsPanel .detailsSideSplitter {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: start;
+  position: relative;
+  z-index: 2;
+  width: 8px;
+  margin-left: -5px;
+  cursor: col-resize;
+  touch-action: none;
+}
+.detailsPanel .detailsSideSplitter::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 3px;
+  height: 44px;
+  margin: -22px 0 0 -1.5px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.28);
+  opacity: 0;
+  transition: opacity 120ms ease, background 120ms ease;
+}
+.detailsPanel .detailsSideSplitter:hover::after,
+.detailsPanel .detailsSideSplitter.isDragging::after,
+.detailsPanel .detailsSideSplitter:focus-visible::after {
+  opacity: 1;
+  background: var(--isUser-fill);
+}
+.detailsPanel .detailsSideSplitter:focus-visible {
   outline: none;
 }
 
@@ -6907,6 +6943,9 @@ html.a2-offline .historyUploadBtn {
 @media (max-width: 999px) {
   .detailsPanel {
     --details-sidebar-w: 150px;
+  }
+  .detailsPanel .detailsSideSplitter {
+    display: none;
   }
   .detailsPanel .detailsBody {
     display: flex;

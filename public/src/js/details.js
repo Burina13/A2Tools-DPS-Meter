@@ -1312,7 +1312,7 @@ const createDetailsUI = ({
     // canvases draw theirs at the same size, and grow their rows with it.
     const text = parseFloat(cs?.fontSize) || 12;
     return {
-      gutter: num("--ftl-gutter", 300),
+      gutter: num("--ftl-gutter", 340),
       right: num("--ftl-right", 52),
       chartHeight: Math.max(num("--ftl-chart-h", 150), Math.round(text * 12)),
       text,
@@ -1397,6 +1397,19 @@ const createDetailsUI = ({
   const detailsBody = detailsPanel?.querySelector?.(".detailsBody");
   const detailsSplitter = detailsPanel?.querySelector?.(".detailsSplitter");
   const SPLIT_KEY = "dpsMeter.detailsSplit";
+  // The dividers are kept with the app's settings (so they last past a
+  // restart), with localStorage as the fallback before those have loaded.
+  const readLayout = (key) => {
+    try {
+      const v = window.javaBridge?.getSetting?.(key);
+      if (v !== undefined && v !== null) return v;
+    } catch { /* below */ }
+    try { return localStorage.getItem(key); } catch { return null; }
+  };
+  const keepLayout = (key, value) => {
+    try { window.javaBridge?.setSetting?.(key, String(value)); } catch { /* below */ }
+    try { localStorage.setItem(key, String(value)); } catch { /* not kept */ }
+  };
   const applySplit = (share) => {
     const top = Math.min(0.8, Math.max(0.2, Number(share) || 0.52));
     detailsBody?.style?.setProperty("--details-top", `${top}fr`);
@@ -1404,7 +1417,7 @@ const createDetailsUI = ({
     if (detailsBody) detailsBody.dataset.split = String(top);
     return top;
   };
-  try { applySplit(localStorage.getItem(SPLIT_KEY)); } catch { applySplit(0.52); }
+  applySplit(readLayout(SPLIT_KEY));
   detailsSplitter?.addEventListener("pointerdown", (event) => {
     if (!detailsBody) return;
     event.preventDefault();
@@ -1419,7 +1432,7 @@ const createDetailsUI = ({
       detailsSplitter.removeEventListener("pointercancel", up);
       detailsSplitter.classList.remove("isDragging");
       if (share !== null) {
-        try { localStorage.setItem(SPLIT_KEY, String(share)); } catch { /* not kept */ }
+        keepLayout(SPLIT_KEY, share);
       }
     };
     detailsSplitter.addEventListener("pointermove", move);
@@ -1431,7 +1444,81 @@ const createDetailsUI = ({
     event.preventDefault();
     const now = Number(detailsBody?.dataset?.split) || 0.52;
     const share = applySplit(now + (event.key === "ArrowDown" ? 0.04 : -0.04));
-    try { localStorage.setItem(SPLIT_KEY, String(share)); } catch { /* not kept */ }
+    keepLayout(SPLIT_KEY, share);
+  });
+
+  // The sidebar's width (the party and the figures; also the timeline's label
+  // gutter): drag the bar on its edge; kept in pixels.
+  const sideSplitter = detailsPanel?.querySelector?.(".detailsSideSplitter");
+  const SIDE_KEY = "dpsMeter.detailsSidebarWidth";
+  const SIDE_MIN = 180;
+  const sideMax = () => Math.max(SIDE_MIN, Math.round((detailsBody?.clientWidth || 1200) * 0.5));
+  let sideRedraw = 0;
+  const applySideWidth = (px) => {
+    const n = Number(px);
+    if (!detailsPanel || !Number.isFinite(n) || n <= 0) {
+      detailsPanel?.style?.removeProperty("--details-sidebar-set");
+      return null;
+    }
+    const width = Math.round(Math.min(sideMax(), Math.max(SIDE_MIN, n)));
+    detailsPanel.style.setProperty("--details-sidebar-set", `${width}px`);
+    // The canvases take the gutter from the style: draw them again.
+    if (!sideRedraw) {
+      sideRedraw = requestAnimationFrame(() => {
+        sideRedraw = 0;
+        updateGridColumns();
+        if (lastDetails) { renderDpsChart(lastDetails); renderTimeline(lastDetails); }
+      });
+    }
+    return width;
+  };
+  applySideWidth(readLayout(SIDE_KEY));
+  const sideWidthNow = () => {
+    const first = detailsBody?.querySelector?.(":scope > .detailsStatsRow");
+    return first?.getBoundingClientRect?.().width || 340;
+  };
+  // The settings arrive after this runs: the dividers are set again on each
+  // opening, from what was kept.
+  const restoreLayout = () => {
+    applySplit(readLayout(SPLIT_KEY));
+    applySideWidth(readLayout(SIDE_KEY));
+  };
+  const keepSideWidth = (width) => {
+    if (width === null) return;
+    keepLayout(SIDE_KEY, width);
+  };
+  sideSplitter?.addEventListener("pointerdown", (event) => {
+    if (!detailsBody) return;
+    event.preventDefault();
+    sideSplitter.setPointerCapture?.(event.pointerId);
+    sideSplitter.classList.add("isDragging");
+    const left = detailsBody.getBoundingClientRect().left;
+    let width = null;
+    const move = (e) => { width = applySideWidth(e.clientX - left); };
+    const up = () => {
+      sideSplitter.removeEventListener("pointermove", move);
+      sideSplitter.removeEventListener("pointerup", up);
+      sideSplitter.removeEventListener("pointercancel", up);
+      sideSplitter.classList.remove("isDragging");
+      keepSideWidth(width);
+    };
+    sideSplitter.addEventListener("pointermove", move);
+    sideSplitter.addEventListener("pointerup", up);
+    sideSplitter.addEventListener("pointercancel", up);
+  });
+  sideSplitter?.addEventListener("keydown", (event) => {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    event.preventDefault();
+    keepSideWidth(applySideWidth(sideWidthNow() + (event.key === "ArrowRight" ? 16 : -16)));
+  });
+  // Double-click: back to the default width.
+  sideSplitter?.addEventListener("dblclick", () => {
+    applySideWidth(null);
+    keepLayout(SIDE_KEY, "");
+    requestAnimationFrame(() => {
+      updateGridColumns();
+      if (lastDetails) { renderDpsChart(lastDetails); renderTimeline(lastDetails); }
+    });
   });
 
   // Which of the timeline's sections show (chart, buffs, casts): the chips at
@@ -2722,6 +2809,7 @@ const createDetailsUI = ({
     fightDungeonId = Number(getDungeonId?.()) || 0;
     fightMobCode = Number(firstTarget?.mobCode) || 0;
     updateHeaderText();
+    restoreLayout();
     detailsPanel.classList.add("open");
     detailsPanel.style.removeProperty("width");
     updateGridColumns();
@@ -2850,6 +2938,7 @@ const createDetailsUI = ({
     fightDungeonId = Number(record.dungeonId) || 0;
     fightMobCode = Number(record.mobCode) || 0;
     updateHeaderText();
+    restoreLayout();
     detailsPanel.classList.add("open");
     detailsPanel.style.removeProperty("width");
     updateGridColumns();
