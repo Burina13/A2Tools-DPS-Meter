@@ -1,5 +1,10 @@
 (() => {
-  const CDN_MANIFEST = "https://a2tools.app/latest-v2.json";
+  // Fork: updates come from the PARTY fork's releases, not a2tools.app —
+  // upstream's installer would silently replace the party upload and Event
+  // Alerts features. latest-party.json lives on this repo's main branch and
+  // is updated by the release run together with the GitHub release.
+  const CDN_MANIFEST =
+    "https://raw.githubusercontent.com/Burina13/A2Tools-DPS-Meter/main/latest-party.json";
   const START_DELAY = 800,
     RETRY = 500,
     LIMIT = 5;

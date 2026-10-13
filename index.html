@@ -441,6 +441,7 @@
                 <button class="settingsNavItem" type="button" role="tab" id="settingsTab-meter" aria-controls="settingsSection-meter" aria-selected="false" tabindex="-1" data-section="meter"><i data-lucide="gauge" aria-hidden="true"></i><span data-i18n="settings.meterSettings">Meter Settings</span></button>
                 <button class="settingsNavItem" type="button" role="tab" id="settingsTab-appearance" aria-controls="settingsSection-appearance" aria-selected="false" tabindex="-1" data-section="appearance"><i data-lucide="palette" aria-hidden="true"></i><span data-i18n="settings.appearance">Appearance</span></button>
                 <button class="settingsNavItem" type="button" role="tab" id="settingsTab-streaming" aria-controls="settingsSection-streaming" aria-selected="false" tabindex="-1" data-section="streaming"><i data-lucide="cast" aria-hidden="true"></i><span data-i18n="settings.streamOverlay.title">Streaming</span></button>
+                <button class="settingsNavItem" type="button" role="tab" id="settingsTab-eventAlerts" aria-controls="settingsSection-eventAlerts" aria-selected="false" tabindex="-1" data-section="eventAlerts"><i data-lucide="bell-ring" aria-hidden="true"></i><span data-i18n="settings.eventAlerts.title">Event Alerts</span></button>
                 <button class="settingsNavItem" type="button" role="tab" id="settingsTab-keybinds" aria-controls="settingsSection-keybinds" aria-selected="false" tabindex="-1" data-section="keybinds"><i data-lucide="keyboard" aria-hidden="true"></i><span data-i18n="settings.keybinds">Keybinds</span></button>
                 <button class="settingsNavItem" type="button" role="tab" id="settingsTab-plugins" aria-controls="settingsSection-plugins" aria-selected="false" tabindex="-1" data-section="plugins"><i data-lucide="puzzle" aria-hidden="true"></i><span data-i18n="settings.plugins.title">Plugins</span></button>
                 <button class="settingsNavItem" type="button" role="tab" id="settingsTab-advanced" aria-controls="settingsSection-advanced" aria-selected="false" tabindex="-1" data-section="advanced"><i data-lucide="sliders-horizontal" aria-hidden="true"></i><span data-i18n="settings.advanced">Advanced</span></button>
@@ -873,6 +874,58 @@
                       <div class="streamOverlayHelp" data-i18n="settings.streamOverlay.help">In OBS on the other PC, add a Browser Source with this URL. The first time, Windows Firewall asks about the meter: allow it on private networks. Anyone on your network with the link can see the meter; New key cuts off old links.</div>
                     </div>
                   </div>
+                </div>
+              </section>
+              <!-- Fork: Event Alerts — the schedule comes from the party's own
+                   server (same source as the Discord timer) and is cached for
+                   offline use; the per-event cards are rendered by
+                   eventAlerts.js. -->
+              <section class="settingsSection" id="settingsSection-eventAlerts" role="tabpanel" aria-labelledby="settingsTab-eventAlerts" data-section="eventAlerts" hidden>
+                <h2 class="settingsSectionTitle" data-i18n="settings.eventAlerts.title">Event Alerts</h2>
+                <div class="settingsGroup">
+                  <label class="settingsToggle" data-i18n-title="settings.eventAlerts.masterTip" title="Schedule comes from the party server and is cached for offline use.">
+                    <span class="settingsToggleLabel settingsLabel eventAlertsMasterLabel" data-i18n="settings.eventAlerts.master">Event alerts</span>
+                    <span class="settingsToggleControl">
+                      <input type="checkbox" class="eventAlertsMasterCheckbox" />
+                      <span class="settingsToggleTrack" aria-hidden="true"></span>
+                    </span>
+                  </label>
+                  <div class="settingsRow">
+                    <label class="settingsLabel eventAlertsVolumeLabel" for="eventAlertsVolume" data-i18n="settings.eventAlerts.volume">Alert volume</label>
+                    <div class="settingsRowEnd eventAlertsVolumeRow">
+                      <input
+                        id="eventAlertsVolume"
+                        class="eventAlertsVolume"
+                        type="range"
+                        min="0"
+                        max="100"
+                        step="5" />
+                      <span class="eventAlertsVolumeValue">70%</span>
+                    </div>
+                  </div>
+                  <label class="settingsToggle">
+                    <span class="settingsToggleLabel settingsLabel eventAlertsToastLabel" data-i18n="settings.eventAlerts.toast">Windows notification (toast)</span>
+                    <span class="settingsToggleControl">
+                      <input type="checkbox" class="eventAlertsToastCheckbox" />
+                      <span class="settingsToggleTrack" aria-hidden="true"></span>
+                    </span>
+                  </label>
+                  <label class="settingsToggle">
+                    <span class="settingsToggleLabel settingsLabel eventAlertsBannerLabel" data-i18n="settings.eventAlerts.banner">Banner over the meter</span>
+                    <span class="settingsToggleControl">
+                      <input type="checkbox" class="eventAlertsBannerCheckbox" />
+                      <span class="settingsToggleTrack" aria-hidden="true"></span>
+                    </span>
+                  </label>
+                  <label class="settingsToggle">
+                    <span class="settingsToggleLabel settingsLabel eventAlertsQuietLabel" data-i18n="settings.eventAlerts.quiet">Quiet during a boss fight (deliver after)</span>
+                    <span class="settingsToggleControl">
+                      <input type="checkbox" class="eventAlertsQuietCheckbox" />
+                      <span class="settingsToggleTrack" aria-hidden="true"></span>
+                    </span>
+                  </label>
+                  <div class="eventAlertsMeta"></div>
+                  <div class="eventAlertsGroups"></div>
                 </div>
               </section>
               <section class="settingsSection" id="settingsSection-keybinds" role="tabpanel" aria-labelledby="settingsTab-keybinds" data-section="keybinds" hidden>
@@ -1348,5 +1401,7 @@
     <script src="/src/js/i18n.js"></script>
     <script src="/src/js/core.js?v=2018a"></script>
     <script src="/src/js/pluginSettings.js"></script>
+    <!-- Fork: Event Alerts — schedule from the party server, alerts in-app. -->
+    <script src="/src/js/eventAlerts.js"></script>
   </body>
 </html>

@@ -4,7 +4,14 @@
 > (GPL-3.0) pre partiu Tvoj Tatko. Pridáva **automatický upload boss fightov na
 > vlastný server partie**, ktorý zlúči captury všetkých členov do jedného
 > spoločného výsledku v Discord kanáli `#aion2-dps-meter` — každý klient totiž
-> vidí len svoje pakety a čísla sa inak u každého líšia. Nič iné sa nemení;
+> vidí len svoje pakety a čísla sa inak u každého líšia. Od `party-v2.1.0`
+> pridáva aj **Event Alerts** (Settings → Event Alerts: zvuk/toast/banner pred
+> world eventami; rozpis z `aion2-dps.tvojtatko.sk/api/eventy`, ten istý zdroj
+> ako Discord časovač `#aion2-casovac`, offline cache; zvuky sú syntetizované
+> skriptom `packaging/sounds/generate_sounds.py`, bez cudzích licencií) a
+> **slovenský preklad UI**. Kontrola aktualizácií ide na `latest-party.json`
+> tohto forku, nie na a2tools.app (upstream inštalátor by potichu zahodil
+> party funkcie). Zmeny forku: `CHANGELOG-PARTY.md`. Inak sa nič nemení;
 > upload na a2tools.app ostáva dostupný a predvolene vypnutý, rovnako stream
 > overlay (port 18731).
 >

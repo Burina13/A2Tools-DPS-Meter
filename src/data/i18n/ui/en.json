@@ -451,6 +451,15 @@
       "permCharacter": "See your character's name, server, class and level",
       "permDecoder": "Read your own game data: {name}",
       "permNone": "Nothing beyond showing its window"
+    },
+    "eventAlerts": {
+      "title": "Event Alerts",
+      "master": "Event alerts",
+      "masterTip": "Schedule comes from the party server and is cached for offline use.",
+      "volume": "Alert volume",
+      "toast": "Windows notification (toast)",
+      "banner": "Banner over the meter",
+      "quiet": "Quiet during a boss fight (deliver after)"
     }
   },
   "support": {

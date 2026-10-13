@@ -3314,6 +3314,7 @@ class DpsApp {
       { value: "ko", label: "한국어" },
       { value: "pt", label: "Português" },
       { value: "ru", label: "Русский" },
+      { value: "sk", label: "Slovenčina" },
       { value: "zh-Hant", label: "繁體中文" },
       { value: "zh-Hans", label: "简体中文" },
     ];

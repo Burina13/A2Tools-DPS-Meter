@@ -1456,6 +1456,20 @@ async fn fetch_url(url: String) -> Result<String, String> {
     Err(NOT_IN_THIS_BUILD.into())
 }
 
+/// Fork: an OS toast for Event Alerts. A thin wrapper over the notification
+/// plugin so the frontend needs no plugin-specific capability entries; errors
+/// come back as strings and the caller treats them as "no toast this time".
+#[tauri::command]
+async fn show_event_toast(app: tauri::AppHandle, title: String, body: String) -> Result<(), String> {
+    use tauri_plugin_notification::NotificationExt;
+    app.notification()
+        .builder()
+        .title(title.chars().take(100).collect::<String>())
+        .body(body.chars().take(300).collect::<String>())
+        .show()
+        .map_err(|e| e.to_string())
+}
+
 /// Which optional parts this build has. `online` is false in the private
 /// build: the pages hide the account, uploads, Streaming, Discord activity,
 /// Send Logs to Dev and the update prompt.
@@ -2648,6 +2662,8 @@ pub fn run() {
             })
             .build())
         .plugin(tauri_plugin_process::init())
+        // Fork: OS notifications for Event Alerts (show_event_toast below).
+        .plugin(tauri_plugin_notification::init())
         // Plugin files, each plugin's own origin (crate::plugins::serve).
         .register_uri_scheme_protocol(crate::plugins::SCHEME, |ctx, request| {
             crate::plugins::serve(ctx.app_handle(), request.uri().path())
@@ -3290,6 +3306,7 @@ pub fn run() {
             test_auto_hide,
             fetch_url,
             show_update_window,
+            show_event_toast,
             build_features,
         ])
         .run(context)

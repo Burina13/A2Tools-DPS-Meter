@@ -1,0 +1,576 @@
+{
+  "header": {
+    "title": "A2Tools DPS Meter",
+    "display": {
+      "dps": "DPS",
+      "total": "DMG",
+      "ariaDps": "Zobrazuje sa DPS",
+      "ariaDamage": "Zobrazuje sa celkový damage",
+      "both": "OBOJE",
+      "ariaBoth": "Zobrazuje sa DPS aj celkový damage"
+    }
+  },
+  "details": {
+    "hoverTooltip": {
+      "loading": "Načítava sa...",
+      "empty": "Pre tento boj nie sú dáta o skilloch",
+      "error": "Skilly sa nepodarilo načítať"
+    },
+    "header": "Detaily",
+    "title": "Detaily — {name}",
+    "tooltip": "Zásahy z damage over time sa nerátajú do celkových pomerov critov, double, perfect, back attackov ani parry.",
+    "settings": {
+      "ariaLabel": "Otvoriť nastavenia detailov"
+    },
+    "panelBackground": "Pozadie panela",
+    "fontSize": {
+      "label": "Veľkosť písma"
+    },
+    "iconSize": {
+      "label": "Veľkosť ikon skillov"
+    },
+    "screenshots": {
+      "label": "Screenshoty",
+      "includeMeter": "Pribaliť hlavný DPS meter",
+      "saveToFolder": "Ukladať screenshoty do priečinka"
+    },
+    "columns": {
+      "label": "Stĺpce skillov"
+    },
+    "screenshot": {
+      "ariaLabel": "Uložiť screenshot do schránky",
+      "captured": "Screenshot zachytený",
+      "savedToClipboard": "Uložené do schránky"
+    },
+    "sort": {
+      "recent": "Posledné",
+      "time": "Čas",
+      "damage": "Damage"
+    },
+    "skills": {
+      "skill": "Skill",
+      "skillTooltip": "Názov skillu",
+      "hits": "Použitia",
+      "hitsTooltip": "Použitia",
+      "dmg": "Dmg",
+      "dmgTooltip": "Damage",
+      "dmgPct": "D%",
+      "dmgPctTooltip": "Podiel damage",
+      "crit": "Crit",
+      "critTooltip": "Crit %",
+      "parry": "Par",
+      "parryTooltip": "Parry %",
+      "perfect": "Per",
+      "perfectTooltip": "Perfect %",
+      "double": "Dbl",
+      "doubleTooltip": "Double %",
+      "back": "Back",
+      "backTooltip": "Back Attack %",
+      "frontal": "Front",
+      "frontalTooltip": "Frontal %",
+      "shieldBlock": "Blk",
+      "shieldBlockTooltip": "Shield Block %",
+      "perfectBlock": "PBlk",
+      "perfectBlockTooltip": "Perfect Block %",
+      "ironWall": "Endr",
+      "ironWallTooltip": "Endurance %",
+      "regeneration": "Rgn",
+      "regenerationTooltip": "Regeneration %",
+      "miss": "Miss",
+      "missTooltip": "Minutia",
+      "resist": "Res",
+      "resistTooltip": "Resisty",
+      "regen": "Reg",
+      "regenTooltip": "Life-steal regen",
+      "multiHit": "MH%",
+      "multiHitTooltip": "Multi-hit %",
+      "multiHitDamage": "MHD",
+      "multiHitDamageTooltip": "Multi-hit damage",
+      "minDmg": "Min",
+      "minDmgTooltip": "Najnižší damage",
+      "avgDmg": "Avg",
+      "avgDmgTooltip": "Priemerný damage",
+      "maxDmg": "Max",
+      "maxDmgTooltip": "Najvyšší damage",
+      "heal": "Heal",
+      "healTooltip": "Healing",
+      "healPct": "H%",
+      "healPctTooltip": "Podiel healingu"
+    },
+    "stats": {
+      "totalDamage": "Celkový damage",
+      "contribution": "Podiel",
+      "hits": "Zásahy",
+      "critRate": "Crit rate",
+      "perfectRate": "Perfect rate",
+      "doubleRate": "Double rate",
+      "backRate": "Back attack rate",
+      "parryRate": "Parry rate",
+      "combatTime": "Čas boja",
+      "selfHealing": "Vlastné liečenie",
+      "multiHitDamage": "Multi-hit damage",
+      "multiHitHits": "Multi-hity",
+      "maxHp": "Max HP"
+    },
+    "titleFor": "pre",
+    "titleVs": "vs",
+    "fightVs": "Boj vs",
+    "all": "Všetci",
+    "history": {
+      "allPlayers": "Všetci hráči"
+    },
+    "dpsChart": "Damage za sekundu",
+    "historyBtn": "História",
+    "timeline": "Časová os",
+    "buffs": {
+      "title": "Buffy",
+      "castByLabel": "Zoslal",
+      "casterAll": "Všetci",
+      "casterParty": "Partia",
+      "casterSelf": "Ja",
+      "sortLabel": "Zoradiť",
+      "sortUptime": "Uptime",
+      "sortFirst": "Prvé nahodenie",
+      "showPassives": "Pasívky",
+      "passives": "Pasívky",
+      "uptime": "Up",
+      "onTarget": "Debuffy na cieli",
+      "selectPlayer": "Vyber hore hráča a uvidíš jeho buffy.",
+      "noneShown": "S týmito filtrami nič.",
+      "none": "V tomto boji sa nezachytili žiadne buffy ani debuffy.",
+      "older": "Tento boj nemá dáta o buffoch (nahraný staršou verziou).",
+      "loading": "Načítava sa...",
+      "unknownCaster": "Neznámy",
+      "summonTag": "Summon",
+      "castBy": "Zoslal {name}",
+      "stacks": "Stacky: {n}",
+      "ended": "Skončil: {reason}",
+      "beforePull": "Nahodený ešte pred začiatkom boja",
+      "end": {
+        "stacks": "Zmenili sa stacky",
+        "expired": "Vypršal",
+        "takenOff": "Zhodený skillom",
+        "removed": "Odstránený (dôvod neznámy)",
+        "recast": "Nahodený znova iným hráčom",
+        "gone": "Cieľ zomrel alebo odišiel",
+        "mapLoad": "Zmenila sa mapa",
+        "notListed": "Skončil nepozorovane",
+        "pushedOut": "Vytlačený novším stackom",
+        "unseen": "Dobehol (koniec sa nezachytil)",
+        "stillOn": "Na konci boja stále bežal",
+        "replaced": "Nahradený novým levelom"
+      }
+    },
+    "fightTimeline": "Časová os boja",
+    "casts": "Použitia",
+    "resize": "Ťahaj a zmeň veľkosť",
+    "healTimingNote": "Tento boj nemá časy healov (nahraný staršou verziou).",
+    "chart": {
+      "bossHp": "HP bossa",
+      "ping": "Ping"
+    },
+    "hpsChart": "Healing za sekundu",
+    "sectionChart": "Graf",
+    "showSections": "Zobraziť úseky"
+  },
+  "history": {
+    "title": "História bojov",
+    "empty": "Zatiaľ žiadne zaznamenané boss fighty.",
+    "delete": "Zmazať",
+    "showTraining": "Zobraziť tréning",
+    "hideTraining": "Skryť tréning",
+    "showTrainingBattles": "Zobraziť tréningové boje",
+    "hideTrainingBattles": "Skryť tréningové boje",
+    "trainBadge": "Tréning",
+    "liveBadge": "Naživo",
+    "filterBoss": "Meno bossa...",
+    "filterPlayer": "Trieda hráča...",
+    "filterDate": "Dátum (RRRR-MM-DD)...",
+    "viewList": "Zoznam",
+    "viewDungeon": "Podľa dungeonu",
+    "viewGrouped": "Podľa bossa",
+    "fightCount": "{n} bojov",
+    "fightCountOne": "1 boj",
+    "previewUpload": "Náhľad uploadu",
+    "previewUploadTip": "Vypíše, čo by zdieľanie tohto boja nahralo. Nič sa neposiela.",
+    "previewWorking": "Pripravuje sa náhľad…",
+    "previewDone": "Zapísané {slice} KB ({sent} KB po kompresii — čo by upload poslal). Ponechané {kept} z {seen} paketov, zamaskovaných {blinded} mien. Nič sa nenahralo. Uložené do {dir}",
+    "uploadTip": "Nahraj tento boj na a2tools.app a dostaneš odkaz na zdieľanie",
+    "uploadOpen": "Otvoriť log tohto boja na a2tools.app",
+    "uploadWorking": "Nahráva sa…",
+    "uploadDonePublic": "Nahrané. Odkaz skopírovaný: {url}",
+    "uploadDonePrivate": "Nahrané ako súkromné. Odkaz skopírovaný: {url}",
+    "openWorld": "Open world"
+  },
+  "settings": {
+    "title": "Nastavenia",
+    "lockedPort": "Zistené pripojenie",
+    "resetDetection": "Zistiť znova",
+    "characterName": "Tvoja postava",
+    "characterNamePlaceholder": "Zadaj meno svojej postavy",
+    "pinMeToTop": "Drž môj riadok navrchu",
+    "slimMode": "Úzky režim",
+    "meterLayout": {
+      "label": "Rozloženie metra",
+      "standard": "Štandardné",
+      "slim": "Úzke"
+    },
+    "detailsMonitor": {
+      "label": "Detaily na druhom monitore",
+      "off": "Vypnuté",
+      "primary": "hlavný",
+      "missing": "Ten displej nie je pripojený.",
+      "single": "Našiel sa len jeden displej — pripoj druhý, ak to chceš použiť.",
+      "badge": "Monitor",
+      "side": {
+        "left": "vľavo",
+        "right": "vpravo",
+        "above": "nad",
+        "below": "pod"
+      }
+    },
+    "appearance": "Vzhľad",
+    "connection": "Pripojenie",
+    "diagnostics": "Diagnostika",
+    "device": {
+      "label": "Sieťový adaptér",
+      "autoDetect": "Zistiť automaticky"
+    },
+    "advanced": "Pokročilé",
+    "bossLogs": "Zapnúť logy per boss",
+    "saveRawPackets": "Logovanie paketov",
+    "resetAllSettings": "Vynulovať všetky nastavenia",
+    "bold": {
+      "label": "Tučné písmo",
+      "names": "Mená",
+      "dps": "DPS"
+    },
+    "showPing": "Zobrazovať ping",
+    "showTtk": "Zobrazovať odhad času do zabitia",
+    "showTotalDps": "Zobrazovať súčet partie",
+    "roundDps": "Skracovať DPS na tisíce (13k)",
+    "showDpsSuffix": "Pridať /s k DPS",
+    "autoHideMeter": "Skryť, keď AION2 nie je v popredí",
+    "showSuspendBtn": "Zobrazovať tlačidlo pozastavenia zachytávania",
+    "showLockBtn": "Zobrazovať tlačidlo zámku preklikávania",
+    "playerLimit": {
+      "label": "Max. zobrazených hráčov"
+    },
+    "debugLogging": "Ladiace logovanie",
+    "quit": "Ukončiť",
+    "discord": {
+      "title": "Discord",
+      "activity": "Ukazovať v Discorde, čo hrám",
+      "activityHint": "Kým je AION2 zapnutý, tvoj Discord status ukazuje meno, triedu, level a server tvojej postavy a bossa, s ktorým bojuješ. Ide to cez Discord appku na tomto počítači; účet netreba."
+    },
+    "streamOverlay": {
+      "title": "Streamovanie",
+      "enable": "Stream overlay (OBS na inom PC)",
+      "enableHint": "Vystaví meter na domácej sieti, aby ho OBS na druhom PC ukázal ako Browser Source.",
+      "port": "Port",
+      "url": "URL pre Browser Source",
+      "copy": "Kopírovať",
+      "copied": "Skopírované",
+      "newKey": "Nový kľúč",
+      "help": "V OBS na druhom PC pridaj Browser Source s touto URL. Pri prvom spustení sa Windows Firewall spýta na meter: povoľ ho na súkromných sieťach. Meter uvidí každý na tvojej sieti, kto má odkaz; Nový kľúč odstrihne staré odkazy.",
+      "noAddress": "Nenašla sa žiadna sieťová adresa. Je tento počítač pripojený k sieti?",
+      "portInvalid": "Zadaj port medzi 1024 a 65535.",
+      "error": "Overlay sa nepodarilo spustiť: {error}",
+      "waiting": "Čaká sa na boj…",
+      "reconnecting": "Znovu sa pripája k metru…",
+      "player": "Hráč",
+      "displayName": "Tvoje meno na streame",
+      "displayNamePlaceholder": "Meno tvojej postavy"
+    },
+    "version": "Verzia",
+    "theme": {
+      "label": "Farebná téma",
+      "options": {
+        "aion2": "AION2",
+        "asmodian": "Asmodian",
+        "cogni": "Cogni",
+        "elyos": "Elyos",
+        "ember": "Ember",
+        "fera": "Fera",
+        "frost": "Frost",
+        "natura": "Natura",
+        "obsidian": "Obsidian",
+        "varian": "Varian"
+      }
+    },
+    "language": {
+      "label": "Jazyk"
+    },
+    "windowOpacity": {
+      "label": "Priehľadnosť pozadia"
+    },
+    "meterOpacity": {
+      "label": "Priehľadnosť pásov"
+    },
+    "bossNameSize": {
+      "label": "Veľkosť titulku"
+    },
+    "targetSelection": {
+      "label": "Výber cieľa (experimentálne)",
+      "options": {
+        "mostDamage": "Najväčší damage (aktuálny)",
+        "mostRecent": "Naposledy zasiahnutý",
+        "lastHitByMe": "Naposledy zasiahnutý mnou",
+        "allTargets": "Všetky ciele spolu"
+      }
+    },
+    "allTargetsWindow": {
+      "label": "Časové okno All Targets",
+      "options": {
+        "30s": "30 sekúnd",
+        "1m": "1 minúta",
+        "2m": "2 minúty",
+        "3m": "3 minúty",
+        "5m": "5 minút"
+      }
+    },
+    "meterSettings": "Nastavenia metra",
+    "keybinds": "Klávesy",
+    "keybind": {
+      "reload": "Znovu načítať dáta",
+      "toggle": "Zobraziť/skryť okno",
+      "pressKeys": "Stlač klávesy...",
+      "needModifiers": "Treba 2+ modifikátory",
+      "lock": "Zamknúť/odomknúť overlay"
+    },
+    "defaultMeterMode": {
+      "label": "Štartovací režim cieľa"
+    },
+    "trainingMode": {
+      "label": "Detaily v režime Train",
+      "options": {
+        "all": "Všetky",
+        "highestDamage": "Najväčší damage"
+      }
+    },
+    "showSupporterColors": "Zobrazovať farby podporovateľov",
+    "showSupporterColorsHint": "Mená podporovateľov sú zlaté. Len kozmetika — žiadne číslo sa tým nemení.",
+    "account": {
+      "title": "Účet A2 Tools",
+      "signedOut": "Neprihlásený",
+      "signedIn": "Prihlásený ako {name}",
+      "hint": "Prihlás sa a synchronizuj postavy a nastavenia s a2tools.app.",
+      "connect": "Prihlásiť sa",
+      "signOut": "Odhlásiť sa",
+      "codePrompt": "Potvrď tento kód v prehliadači:",
+      "codeHint": "Stránka by sa už mala otvoriť. Kód platí 10 minút.",
+      "working": "Čaká sa na potvrdenie…",
+      "failed": "Prihlásenie zlyhalo: {error}",
+      "supporter": "Podporovateľ",
+      "autoUpload": "Nahrávať boss fighty automaticky",
+      "autoUploadHint": "Po skončení boss fightu sa boj nahrá na tvoj účet s viditeľnosťou, ktorú si si vybral na a2tools.app. Ostatní hráči ostávajú zamaskovaní. Tréningové panáky sa nenahrávajú nikdy."
+    },
+    "sendLogs": {
+      "hint": "Pošle vývojárovi tvoje 3 najnovšie paketové logy k hláseniu chyby.",
+      "button": "Poslať logy vývojárovi",
+      "confirm": "Poslať vývojárovi A2 Tools tvoje 3 najnovšie paketové logy?\n\nPaketové logy sú surová herná prevádzka nahraná so zapnutým logovaním paketov, vrátane mien postáv. Otvoriť ich vie len vývojár a po 30 dňoch sa mažú.",
+      "sending": "Posiela sa...",
+      "sent": "Poslané. Kód tvojho hlásenia je {code}: daj ho vývojárovi na Discorde.",
+      "failed": "Nepodarilo sa poslať: {error}"
+    },
+    "barGap": {
+      "label": "Rozostupy pásov"
+    },
+    "debugLoggingLocked": "Zapnuté, kým beží logovanie paketov: paketové logy potrebujú ladiaci log.",
+    "tips": {
+      "characterName": "Tvoje herné meno a ID, nech meter vie, ktorý riadok si ty. Obvykle sa nájde samo.",
+      "device": "Sieťové pripojenie, z ktorého meter číta hernú prevádzku. Automatika ho nájde; pri VPN si vyber ručne.",
+      "lockedPort": "Adaptér a port, na ktorom sa hra našla.",
+      "defaultMeterMode": "Režim cieľa, v ktorom sa meter otvorí: Boss, Target, Train alebo All.",
+      "playerLimit": "Koľko riadkov hráčov meter ukáže; zvyšok sa vynechá.",
+      "pinMeToTop": "Tvoj riadok je vždy prvý, nech je tvoj damage akýkoľvek.",
+      "autoHideMeter": "Meter zmizne, kým je pred hrou iné okno, a vráti sa s ňou.",
+      "detailsMonitor": "Otvorí okno Detailov na zvolenom displeji a drží ho tam.",
+      "showTtk": "Vedľa časovača boja odhad, ako dlho potrvá celý boss fight.",
+      "showTotalDps": "Pás pod riadkami so spoločným DPS a damage celej partie.",
+      "roundDps": "13 412 sa ukáže ako 13k.",
+      "showSuspendBtn": "Tlačidlo na metri, ktoré zastaví čítanie hernej prevádzky, kým ho nestlačíš znova.",
+      "showLockBtn": "Tlačidlo, po ktorom meter ignoruje myš a kliky idú do hry.",
+      "windowOpacity": "Ako priesvitné je pozadie metra. Pásy a text ostávajú ako sú.",
+      "meterOpacity": "Ako plné sú farebné damage pásy.",
+      "bossNameSize": "Veľkosť mena bossa alebo cieľa nad pásmi.",
+      "trainingMode": "V režime Train: ktoré panáky okno Detailov ukáže — všetky spolu, alebo len ten, do ktorého biješ najviac.",
+      "allTargetsWindow": "V režime All Targets meter sčíta každý cieľ zasiahnutý v tomto čase od posledného zásahu.",
+      "debugLogging": "Píše diagnostický log, podľa ktorého vývojár dohľadá problémy.",
+      "saveRawPackets": "Nahráva surovú hernú prevádzku k hláseniam chýb. Ladiace logovanie sa zapne spolu s tým.",
+      "globalHotkeys": "Klávesy nižšie fungujú všade, aj keď je hra v popredí. Vypnuté sa uvoľnia iným programom. Na Linuxe ich registruje tvoje prostredie a môže si vypýtať potvrdenie.",
+      "pluginDevMode": "Načítava pluginy z priečinkov na tomto počítači, na ich vývoj a testovanie. Nie sú preverené, načítavaj len pluginy, ktorým veríš."
+    },
+    "globalHotkeys": "Používať klávesy",
+    "hotkeyConsent": {
+      "title": "Zapnúť klávesy?",
+      "desktop": "Na Linuxe klávesy pre meter nastavuje tvoje prostredie a môže si vypýtať potvrdenie.",
+      "anytime": "Klávesy môžeš kedykoľvek vypnúť.",
+      "confirm": "Zapnúť",
+      "cancel": "Teraz nie"
+    },
+    "keybindTaken": "Tieto klávesy už používa iný program. Vyber iné.",
+    "keybindShared": "Tieto klávesy už používa iná akcia. Vyber iné.",
+    "plugins": {
+      "title": "Pluginy",
+      "devMode": "Vývojársky režim pluginov",
+      "hint": "Pluginy načítané tu nie sú preverené. Načítavaj len pluginy, ktorým veríš.",
+      "add": "Načítať priečinok pluginu…",
+      "open": "Otvoriť",
+      "remove": "Odstrániť",
+      "checkUpdates": "Skontrolovať aktualizácie",
+      "checking": "Kontroluje sa…",
+      "upToDate": "Všetky pluginy sú aktuálne.",
+      "updated": "Aktualizované: {list}",
+      "updatedFrom": "Aktualizované z {version}",
+      "added": "Čerstvo načítaný",
+      "intro": "Preverené pluginy pridávajú funkcie vedľa metra. Každý dostane len to, o čo si pri inštalácii vypýta.",
+      "installed": "Nainštalované",
+      "none": "Zatiaľ žiadne pluginy.",
+      "available": "Dostupné",
+      "catalogLoading": "Načítava sa zoznam pluginov…",
+      "catalogEmpty": "Všetky preverené pluginy sú nainštalované.",
+      "catalogError": "Zoznam pluginov sa nepodarilo načítať: {error}",
+      "offline": "Offline build pluginy nesťahuje.",
+      "install": "Nainštalovať",
+      "update": "Aktualizovať",
+      "updateTo": "Aktualizovať na {version}",
+      "installing": "Inštaluje sa…",
+      "installDone": "{name} {version} je nainštalovaný.",
+      "updatesAvailable": "Dostupné aktualizácie: {list}",
+      "unreviewed": "Nepreverený",
+      "by": "od {author}",
+      "consentTitle": "Nainštalovať {name}?",
+      "consentUpdateTitle": "Aktualizovať {name}?",
+      "consentIntro": "Bude môcť:",
+      "consentNew": "Nová verzia navyše žiada:",
+      "consentCancel": "Zrušiť",
+      "permStorage": "Ukladať si vlastné dáta na tomto počítači",
+      "permNotify": "Zobrazovať krátke správy vo svojom okne",
+      "permWindow": "Zobrazovať a skrývať vlastné okno bez zobratia fokusu hre",
+      "permCharacter": "Vidieť meno, server, triedu a level tvojej postavy",
+      "permDecoder": "Čítať tvoje vlastné herné dáta: {name}",
+      "permNone": "Nič nad rámec zobrazenia svojho okna"
+    },
+    "eventAlerts": {
+      "title": "Upozornenia na eventy",
+      "master": "Upozornenia na eventy",
+      "masterTip": "Rozpis ide zo servera partie a drží sa aj offline (posledný známy).",
+      "volume": "Hlasitosť upozornení",
+      "toast": "Windows notifikácia (toast)",
+      "banner": "Banner nad metrom",
+      "quiet": "Ticho počas boja s bossom (doručí po boji)"
+    }
+  },
+  "support": {
+    "button": "Podpor ma",
+    "title": "Podpor autora na Ko-fi",
+    "titleWechat": "Podpor autora cez WeChat",
+    "label": {
+      "wechat": "WeChat"
+    },
+    "copy": {
+      "btc": "BTC adresa skopírovaná",
+      "eth": "ETH adresa skopírovaná",
+      "usdc": "USDC adresa skopírovaná"
+    },
+    "aria": {
+      "afdian": "Otvoriť Afdian",
+      "kofi": "Otvoriť Ko-fi",
+      "close": "Zavrieť okno podpory",
+      "wechat": "Zobraziť WeChat QR kód",
+      "paypal": "Otvoriť PayPal",
+      "btc": "Kopírovať BTC adresu",
+      "eth": "Kopírovať ETH adresu",
+      "usdc": "Kopírovať USDC adresu"
+    }
+  },
+  "battleTime": {
+    "analysing": "Sledujú sa dáta...",
+    "ttkTooltip": "Odhad dĺžky celého boss fightu zo zvyšných HP a damage partie",
+    "idle": "Nečinný",
+    "notRunning": "AION2 nebeží",
+    "suspended": "Appka pozastavená",
+    "waitingBoss": "Čaká sa na bossa"
+  },
+  "meter": {
+    "identifyingPlayer": "#{id}",
+    "dpsSuffix": "/s"
+  },
+  "skills": {
+    "fallback": "Skill {code}",
+    "dot": "{name} - DOT"
+  },
+  "update": {
+    "title": "Je dostupná nová verzia",
+    "install": "Nainštalovať teraz",
+    "notes": "Poznámky k vydaniu",
+    "manual": "Ručná inštalácia",
+    "later": "Neskôr",
+    "text": "Je dostupná nová verzia!\n\nAktuálna verzia: {current}\nNajnovšia verzia: {latest}",
+    "installing": "Inštaluje sa aktualizácia...",
+    "downloadError": "Sťahovanie zlyhalo. Skús znova alebo nainštaluj ručne."
+  },
+  "connection": {
+    "auto": "Auto",
+    "detecting": "Hľadá sa pripojenie AION2...",
+    "loopback": "Lokálny loopback"
+  },
+  "target": {
+    "all": "Všetky ciele",
+    "identifying": "Zisťuje sa, kto si...",
+    "train": "Tréningový panák",
+    "boss": "Boss ciele"
+  },
+  "classes": {
+    "GLADIATOR": "Gladiator",
+    "TEMPLAR": "Templar",
+    "RANGER": "Ranger",
+    "ASSASSIN": "Assassin",
+    "SORCERER": "Sorcerer",
+    "CLERIC": "Cleric",
+    "ELEMENTALIST": "Spiritmaster",
+    "CHANTER": "Chanter",
+    "FIGHTER": "Brawler"
+  },
+  "dungeon": {
+    "difficulty": {
+      "exploration": "Exploration",
+      "normal": "Normal",
+      "hard": "Hard",
+      "level": "Level {n}"
+    }
+  },
+  "presence": {
+    "level": "Lv {level}",
+    "fighting": "Bojuje s {boss}",
+    "inGame": "V hre",
+    "elyos": "Elyos",
+    "asmodian": "Asmodian",
+    "korea": "Kórea",
+    "taiwan": "Taiwan",
+    "tierExpedition": "Expedition",
+    "tierConquestNormal": "Conquest (Normal)",
+    "tierConquestHard": "Conquest (Hard)"
+  },
+  "discordPromo": {
+    "title": "Novinka: Discord aktivita",
+    "text": "Nech kamaráti vidia tvoju postavu, triedu, level a server aj bossa či dungeon, v ktorom si — priamo v tvojom Discord statuse.",
+    "hint": "Používa Discord appku na tomto PC; účet netreba. Kedykoľvek to zmeníš v Nastaveniach.",
+    "done": "Hotovo",
+    "close": "Zavrieť"
+  },
+  "accountPromo": {
+    "title": "Drž svoje boss fighty na a2tools.app",
+    "text": "Vytvor si bezplatný účet alebo sa prihlás a každý boss fight sa uloží online: odkaz na zdieľanie, logy na každom zariadení a tvoje miesto v rebríčku.",
+    "hint": "Mená ostatných hráčov ostávajú zamaskované a tréningové panáky sa nenahrávajú nikdy. Kedykoľvek to zmeníš v Nastaveniach.",
+    "signIn": "Prihlásiť sa",
+    "later": "Teraz nie",
+    "close": "Zavrieť"
+  },
+  "npcapPrompt": {
+    "ask": "A2Tools DPS Meter potrebuje Npcap na čítanie sieťovej prevádzky hry a Npcap chýba alebo nefunguje.\n\nNainštalovať ho teraz? Meter stiahne inštalátor Npcap z npcap.com a otvorí ho. Po inštalácii Npcap začne meter zachytávať sám.\n\nPri voľbe Nie si ho nainštaluj sám z https://npcap.com/#download",
+    "downloadFailed": "Inštalátor Npcap sa nepodarilo stiahnuť ({error}).\n\nNainštaluj si ho sám z https://npcap.com/#download a potom meter otvor znova.",
+    "stillMissing": "Npcap stále nefunguje. Ak sa jeho inštalátor zavrel pred dokončením, nainštaluj Npcap z https://npcap.com/#download a meter otvor znova."
+  }
+}

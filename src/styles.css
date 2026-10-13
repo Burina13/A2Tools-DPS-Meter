@@ -7087,3 +7087,226 @@ html.a2-offline .historyUploadBtn {
   width: 0;
   height: 0;
 }
+
+/* ── Fork: Event Alerts (Settings section + banner in the main window) ───── */
+
+.eventAlertsMeta {
+  margin: 10px 0 4px;
+  font-size: 11px;
+  opacity: 0.65;
+}
+
+.eventAlertsVolumeRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.eventAlertsVolume {
+  width: 140px;
+  accent-color: var(--accent, #7ecfff);
+}
+.eventAlertsVolumeValue {
+  min-width: 36px;
+  font-size: 12px;
+  text-align: right;
+  opacity: 0.8;
+}
+
+.eventAlertsGroupHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 14px 0 6px;
+}
+.eventAlertsGroupTitle {
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+.eventAlertsBulkBtn {
+  margin-left: 6px;
+  padding: 2px 10px;
+  font-size: 11px;
+  color: var(--text-color);
+  background: var(--panel-field-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  cursor: pointer;
+}
+.eventAlertsBulkBtn:hover {
+  border-color: var(--accent, #7ecfff);
+}
+
+.eventAlertsCard {
+  margin: 6px 0;
+  padding: 8px 10px;
+  background: var(--panel-field-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  opacity: 0.75;
+}
+.eventAlertsCard.isOn {
+  opacity: 1;
+  border-color: var(--accent, #7ecfff);
+}
+.eventAlertsCardRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.eventAlertsCardIcon {
+  font-size: 20px;
+  line-height: 1;
+}
+.eventAlertsCardNames {
+  flex: 1;
+  min-width: 0;
+}
+.eventAlertsCardName {
+  font-size: 13px;
+  font-variation-settings: "wght" 600;
+}
+.eventAlertsCardNext {
+  font-size: 11px;
+  color: var(--accent, #7ecfff);
+}
+.eventAlertsCardPlace {
+  font-size: 10px;
+  opacity: 0.6;
+}
+.eventAlertsCardOpts {
+  display: none;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--panel-border);
+}
+.eventAlertsCard.isOn .eventAlertsCardOpts {
+  display: flex;
+}
+.eventAlertsOpt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+.eventAlertsOptLabel {
+  opacity: 0.8;
+}
+.eventAlertsSelect {
+  padding: 2px 6px;
+  font-size: 11px;
+  color: var(--text-color);
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+}
+.eventAlertsPlayBtn {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--text-color);
+  background: var(--panel-field-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 50%;
+  cursor: pointer;
+}
+.eventAlertsPlayBtn:hover {
+  border-color: var(--accent, #7ecfff);
+}
+
+/* The banner lives in the MAIN window, which is the always-on-top overlay —
+   that is what puts it "above the game" without another native window. */
+.eventAlertBanner {
+  position: fixed;
+  top: 6px;
+  left: 50%;
+  z-index: 9000;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 92%;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--text-color);
+  background: var(--panel-bg);
+  border: 1px solid var(--accent, #7ecfff);
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -8px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+.eventAlertBanner.isVisible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate(-50%, 0);
+}
+.eventAlertBannerIcon {
+  font-size: 16px;
+}
+.eventAlertBannerText {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.eventAlertBannerSnooze,
+.eventAlertBannerClose {
+  flex: none;
+  padding: 2px 8px;
+  font-size: 11px;
+  color: var(--text-color);
+  background: var(--panel-field-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.eventAlertBannerSnooze:hover,
+.eventAlertBannerClose:hover {
+  border-color: var(--accent, #7ecfff);
+}
+
+/* Fork: one-time "what's new" card after an update. */
+.partyChangelog {
+  position: fixed;
+  top: 40px;
+  left: 50%;
+  z-index: 9100;
+  width: min(360px, 92%);
+  padding: 12px 14px;
+  font-size: 12px;
+  color: var(--text-color);
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.55);
+  transform: translateX(-50%);
+}
+.partyChangelogHead {
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-variation-settings: "wght" 650;
+}
+.partyChangelog ul {
+  margin: 0 0 10px;
+  padding-left: 18px;
+}
+.partyChangelog li {
+  margin: 3px 0;
+}
+.partyChangelogOk {
+  display: block;
+  margin-left: auto;
+  padding: 4px 16px;
+  color: var(--text-color);
+  background: var(--panel-field-bg);
+  border: 1px solid var(--accent, #7ecfff);
+  border-radius: 8px;
+  cursor: pointer;
+}
