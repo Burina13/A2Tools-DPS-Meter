@@ -62,6 +62,24 @@ systemctl reboot
 
 Updates then come with your system updates: Bazzite installs them on its own, or run `rpm-ostree upgrade` and restart. On a Steam Deck running Bazzite, use **Desktop Mode**: in Game Mode, nothing can draw over the game.
 
+#### Updating without a restart (advanced)
+
+`rpm-ostree` can also apply a meter update to the running system. Close the meter, then:
+
+```bash
+rpm-ostree upgrade
+```
+
+```bash
+sudo rpm-ostree apply-live --allow-replacement
+```
+
+Start the meter again and check the version with `rpm -q a2-tools-dps-meter`.
+
+- `rpm-ostree upgrade` also fetches any new Bazzite system image waiting at the time, and `apply-live` would then apply that system update live too, which is best avoided. If one is waiting (`rpm-ostree status` shows a new base image), restart once for it, and use this only when the meter alone has changed.
+- `--allow-replacement` is needed because the meter is already installed: without it, `apply-live` only adds new packages.
+- If anything misbehaves afterwards, including packet capture, a normal restart sets it right: the update is staged either way.
+
 ### Steam Deck (SteamOS)
 
 SteamOS replaces its read-only system with every update, so anything installed into it directly is wiped. Instead, the meter goes in a **distrobox**: a container with its own Arch Linux inside, which SteamOS 3.5 and later include. It must be created with `--root`: an ordinary (rootless) container cannot read the game's network traffic.
