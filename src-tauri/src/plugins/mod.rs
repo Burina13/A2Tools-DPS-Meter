@@ -651,10 +651,40 @@ fn remember_window(app: &tauri::AppHandle, id: &str, state: Option<&str>) {
 /// Where a plugin window was last left, `"x,y"` (physical pixels), per id.
 const POSITION_PREFIX: &str = "dpsMeter.pluginWindow.";
 
-fn saved_position(app: &tauri::AppHandle, id: &str) -> Option<(i32, i32)> {
+/// Where to put a plugin window: where it was left, if that is still on a
+/// screen (a monitor unplugged or rearranged since leaves it out of reach).
+fn saved_position(app: &tauri::AppHandle, window: &tauri::WebviewWindow, id: &str) -> Option<(i32, i32)> {
     let value = app.try_state::<AppState>()?.settings.get(&format!("{POSITION_PREFIX}{id}"))?;
     let (x, y) = value.split_once(',')?;
-    Some((x.trim().parse().ok()?, y.trim().parse().ok()?))
+    let (x, y) = (x.trim().parse().ok()?, y.trim().parse().ok()?);
+    let width = window.outer_size().map(|size| size.width).unwrap_or(240);
+    let screens: Vec<_> = window
+        .available_monitors()
+        .unwrap_or_default()
+        .iter()
+        .map(|monitor| {
+            let area = monitor.work_area();
+            (area.position.x, area.position.y, area.size.width, area.size.height)
+        })
+        .collect();
+    within_reach(x, y, width, &screens).then_some((x, y))
+}
+
+/// Whether a window at `x, y`, `width` wide, has enough of its top bar on one
+/// of `screens` (x, y, width, height) to be seen and dragged back. With no
+/// screens known (some Linux sessions report none), any place will do.
+fn within_reach(x: i32, y: i32, width: u32, screens: &[(i32, i32, u32, u32)]) -> bool {
+    const SHOWN_WIDTH: i64 = 48;
+    const BAR_HEIGHT: i64 = 32;
+    if screens.is_empty() {
+        return true;
+    }
+    let (x, y, width) = (i64::from(x), i64::from(y), i64::from(width));
+    screens.iter().any(|&(sx, sy, sw, sh)| {
+        let (sx, sy, sw, sh) = (i64::from(sx), i64::from(sy), i64::from(sw), i64::from(sh));
+        let shown = (x + width).min(sx + sw) - x.max(sx);
+        shown >= SHOWN_WIDTH.min(width) && y >= sy && y + BAR_HEIGHT <= sy + sh
+    })
 }
 
 /// When each plugin window was last shown: moves right after that are the
@@ -669,7 +699,7 @@ fn shown_at() -> &'static Mutex<HashMap<String, Instant>> {
 /// before showing and again once it is up.
 fn show_in_place(app: &tauri::AppHandle, window: &tauri::WebviewWindow, id: &str, show: impl FnOnce()) {
     shown_at().lock().unwrap_or_else(|p| p.into_inner()).insert(id.to_string(), Instant::now());
-    let saved = saved_position(app, id);
+    let saved = saved_position(app, window, id);
     if let Some((x, y)) = saved {
         let _ = window.set_position(tauri::PhysicalPosition::new(x, y));
     }
@@ -752,7 +782,7 @@ fn open_window(app: &tauri::AppHandle, id: &str, visible: bool) -> Result<(), St
         .shadow(false)
         .build()
         .map(|window| {
-            if let Some((x, y)) = saved_position(app, id) {
+            if let Some((x, y)) = saved_position(app, &window, id) {
                 let _ = window.set_position(tauri::PhysicalPosition::new(x, y));
             }
         })
@@ -1118,7 +1148,21 @@ fn percent_decode(s: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{base64, content_policy, inline_page, inlined_policy};
+    use super::{base64, content_policy, inline_page, inlined_policy, within_reach};
+
+    #[test]
+    fn a_window_left_on_a_screen_goes_back_there_and_one_off_every_screen_does_not() {
+        // Two 1920x1080 screens side by side, the left with a 40 px taskbar.
+        let screens = [(0, 0, 1920, 1040), (1920, 0, 1920, 1080)];
+        assert!(within_reach(100, 100, 300, &screens));
+        assert!(within_reach(2500, 900, 300, &screens), "on the second screen");
+        assert!(within_reach(-250, 100, 300, &screens), "mostly off the left edge, 50 px still showing");
+        assert!(!within_reach(-280, 100, 300, &screens), "20 px showing is not enough to grab");
+        assert!(!within_reach(4000, 100, 300, &screens), "where a third screen was");
+        assert!(!within_reach(100, -20, 300, &screens), "its bar above the top");
+        assert!(!within_reach(100, 1020, 300, &screens), "its bar behind the taskbar");
+        assert!(within_reach(4000, 100, 300, &[]), "no screens known: trust the saved place");
+    }
 
     #[test]
     fn a_page_gets_its_own_scripts_styles_and_images_inlined() {
