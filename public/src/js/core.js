@@ -2909,20 +2909,28 @@ class DpsApp {
     // Fork: party upload — off unless turned on, same reasoning as above.
     // The URL and key live in the client's settings.json, never in the repo.
     if (this.partyUploadCheckbox) {
+      // On unless turned off, mirroring party_upload::config in the backend;
+      // with no key pasted yet nothing is sent either way.
       this.partyUploadCheckbox.checked =
-        this.safeGetSetting(this.storageKeys.partyUpload) === "true";
+        this.safeGetSetting(this.storageKeys.partyUpload) !== "false";
       this.partyUploadCheckbox.addEventListener("change", (event) => {
         this.safeSetSetting(this.storageKeys.partyUpload, String(!!event.target?.checked));
       });
     }
     if (this.partyUploadUrlInput) {
-      this.partyUploadUrlInput.value =
-        this.safeGetSetting(this.storageKeys.partyUploadUrl) || "";
+      // The party's server, prefilled (and saved) so a fresh install only
+      // needs the personal key. Clearing the field puts the default back.
+      const PARTY_DEFAULT_URL = "https://aion2-dps.tvojtatko.sk";
+      let partyUrl = (this.safeGetSetting(this.storageKeys.partyUploadUrl) || "").trim();
+      if (!partyUrl) {
+        partyUrl = PARTY_DEFAULT_URL;
+        this.safeSetSetting(this.storageKeys.partyUploadUrl, partyUrl);
+      }
+      this.partyUploadUrlInput.value = partyUrl;
       this.partyUploadUrlInput.addEventListener("change", (event) => {
-        this.safeSetSetting(
-          this.storageKeys.partyUploadUrl,
-          String(event.target?.value || "").trim()
-        );
+        const typed = String(event.target?.value || "").trim() || PARTY_DEFAULT_URL;
+        event.target.value = typed;
+        this.safeSetSetting(this.storageKeys.partyUploadUrl, typed);
       });
     }
     if (this.partyUploadKeyInput) {
@@ -2935,6 +2943,7 @@ class DpsApp {
         );
       });
     }
+    this.initPartyStatus();
 
     if (this.showSupporterColorsCheckbox) {
       this.showSupporterColorsCheckbox.checked = this.showSupporterColors;
@@ -5302,6 +5311,69 @@ class DpsApp {
     }
     if (this.meterTotalDmgEl) {
       this.meterTotalDmgEl.textContent = this.formatAbbreviatedNumber(totalDmg);
+    }
+  }
+
+  // Tvoj Tatko section: last successful party upload, a connection test
+  // that probes the server with the URL and key as typed, and the logs web.
+  initPartyStatus() {
+    const lastEl = document.querySelector(".partyLastUpload");
+    const testBtn = document.querySelector(".partyTestBtn");
+    const statusEl = document.querySelector(".partyTestStatus");
+    const webBtn = document.querySelector(".partyWebBtn");
+    if (testBtn?.dataset.wired) return;
+    if (testBtn) testBtn.dataset.wired = "1";
+    const t = (key, fallback) => window.i18n?.t?.(key, fallback) ?? fallback;
+    const invoke = window.__TAURI__?.core?.invoke;
+    const renderLast = async () => {
+      if (!lastEl || !invoke) return;
+      try {
+        const st = await invoke("party_upload_status");
+        if (st?.lastOkMs) {
+          lastEl.removeAttribute("data-i18n");
+          lastEl.textContent = new Date(st.lastOkMs).toLocaleString();
+        }
+      } catch {}
+    };
+    renderLast();
+    try {
+      window.__TAURI__?.event?.listen?.("party-fight-uploaded", renderLast);
+    } catch {}
+    if (testBtn && invoke) {
+      testBtn.addEventListener("click", async () => {
+        const url = String(this.partyUploadUrlInput?.value || "").trim();
+        const key = String(this.partyUploadKeyInput?.value || "").trim();
+        if (statusEl) statusEl.textContent = t("settings.tvojtatko.testing", "Testing…");
+        testBtn.disabled = true;
+        try {
+          const r = await invoke("party_upload_test", { url, key });
+          const code = r?.code || "unexpected";
+          const fallbacks = {
+            ok: "Connected — the key works.",
+            rate_limited: "The key works; the server is rate limiting uploads right now.",
+            bad_key: "The server answered, but refused the key — check it.",
+            unreachable: "The server could not be reached.",
+            server_error: "The server has a problem right now.",
+            missing: "Fill in the server URL and the key first.",
+            unexpected: "Unexpected answer from the server.",
+          };
+          if (statusEl) {
+            statusEl.textContent =
+              (r?.ok ? "✓ " : "✗ ") +
+              t(`settings.tvojtatko.test_${code}`, fallbacks[code] || fallbacks.unexpected);
+          }
+        } catch (e) {
+          if (statusEl) statusEl.textContent = "✗ " + String(e);
+        } finally {
+          testBtn.disabled = false;
+        }
+        renderLast();
+      });
+    }
+    if (webBtn) {
+      webBtn.addEventListener("click", () => {
+        window.javaBridge?.openBrowser?.("https://aion2-logs.tvojtatko.sk");
+      });
     }
   }
 

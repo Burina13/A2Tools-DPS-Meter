@@ -28,6 +28,9 @@ use crate::entity::fight_record::FightRecord;
 pub const ENABLED_KEY: &str = "dpsMeter.partyUpload";
 pub const URL_KEY: &str = "dpsMeter.partyUploadUrl";
 pub const KEY_KEY: &str = "dpsMeter.partyUploadKey";
+/// Written by the meter after each accepted upload; the Tvoj Tatko settings
+/// section shows it as "last successful upload".
+pub const LAST_OK_KEY: &str = "dpsMeter.partyUploadLastOkMs";
 
 /// The same "fight is over" rule the a2tools auto-upload uses: a boss still
 /// being fought is re-saved every 30 seconds, and uploading those partial
@@ -39,7 +42,10 @@ const ENDED_AFTER_MS: i64 = 10_000;
 const RETRY_MINUTES: [i64; 6] = [1, 2, 5, 15, 30, 60];
 
 pub fn config(settings: &crate::config::settings::Settings) -> Option<(String, String)> {
-    if settings.get(ENABLED_KEY).as_deref() != Some("true") {
+    // On unless turned off: with the server URL prefilled by the page, a new
+    // install only needs the personal key pasted in — and with no key (or no
+    // URL) this still returns None, so nothing is ever sent by default.
+    if settings.get(ENABLED_KEY).as_deref().unwrap_or("true") != "true" {
         return None;
     }
     let url = settings.get(URL_KEY).unwrap_or_default().trim().trim_end_matches('/').to_string();
@@ -241,6 +247,43 @@ pub async fn upload(
     // that refused the key or the fight will refuse it again.
     let retryable = status.as_u16() == 408 || status.as_u16() == 429 || status.is_server_error();
     Err(UploadFailure { message, retryable })
+}
+
+/// The Settings "test" button: a deliberately empty POST to `/api/upload`.
+/// The server checks the Bearer key before it validates the body, so nothing
+/// is ever stored, yet the status code says whether the server was reached
+/// and the key accepted. The `code` is a token the page translates.
+#[cfg(feature = "online")]
+pub async fn test(client: &reqwest::Client, base_url: &str, key: &str) -> serde_json::Value {
+    let base = base_url.trim().trim_end_matches('/');
+    if base.is_empty() || key.trim().is_empty() {
+        return serde_json::json!({ "ok": false, "code": "missing" });
+    }
+    let response = client
+        .post(format!("{base}/api/upload"))
+        .timeout(std::time::Duration::from_secs(15))
+        .header("authorization", format!("Bearer {}", key.trim()))
+        .header("content-type", "application/json")
+        .body("{}")
+        .send()
+        .await;
+    let response = match response {
+        Ok(r) => r,
+        Err(e) => {
+            return serde_json::json!({
+                "ok": false, "code": "unreachable", "detail": e.to_string(),
+            })
+        }
+    };
+    let status = response.status().as_u16();
+    let (ok, code) = match status {
+        401 | 403 => (false, "bad_key"),
+        429 => (true, "rate_limited"),
+        200 | 400 | 413 => (true, "ok"),
+        s if s >= 500 => (false, "server_error"),
+        _ => (false, "unexpected"),
+    };
+    serde_json::json!({ "ok": ok, "code": code, "status": status })
 }
 
 #[cfg(test)]

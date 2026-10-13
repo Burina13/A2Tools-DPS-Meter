@@ -437,7 +437,8 @@
           <div class="settingsBody">
             <nav class="settingsNav" aria-label="Settings sections">
               <div class="settingsTabs" role="tablist" aria-orientation="vertical">
-                <button class="settingsNavItem isActive" type="button" role="tab" id="settingsTab-connection" aria-controls="settingsSection-connection" aria-selected="true" tabindex="0" data-section="connection"><i data-lucide="plug" aria-hidden="true"></i><span data-i18n="settings.connection">Connection</span></button>
+                <button class="settingsNavItem isActive" type="button" role="tab" id="settingsTab-tvojtatko" aria-controls="settingsSection-tvojtatko" aria-selected="true" tabindex="0" data-section="tvojtatko"><i data-lucide="swords" aria-hidden="true"></i><span>Tvoj Tatko</span></button>
+                <button class="settingsNavItem" type="button" role="tab" id="settingsTab-connection" aria-controls="settingsSection-connection" aria-selected="false" tabindex="-1" data-section="connection"><i data-lucide="plug" aria-hidden="true"></i><span data-i18n="settings.connection">Connection</span></button>
                 <button class="settingsNavItem" type="button" role="tab" id="settingsTab-account" aria-controls="settingsSection-account" aria-selected="false" tabindex="-1" data-section="account"><i data-lucide="circle-user" aria-hidden="true"></i><span data-i18n="settings.account.title">A2 Tools Account</span></button>
                 <button class="settingsNavItem" type="button" role="tab" id="settingsTab-meter" aria-controls="settingsSection-meter" aria-selected="false" tabindex="-1" data-section="meter"><i data-lucide="gauge" aria-hidden="true"></i><span data-i18n="settings.meterSettings">Meter Settings</span></button>
                 <button class="settingsNavItem" type="button" role="tab" id="settingsTab-appearance" aria-controls="settingsSection-appearance" aria-selected="false" tabindex="-1" data-section="appearance"><i data-lucide="palette" aria-hidden="true"></i><span data-i18n="settings.appearance">Appearance</span></button>
@@ -450,7 +451,71 @@
               <button class="settingsFooterValue settingsVersionLink" type="button" data-i18n-aria-label="settings.version" aria-label="Version"><span class="settingsVersionValue">-</span></button>
             </nav>
             <div class="settingsPane">
-              <section class="settingsSection isActive" id="settingsSection-connection" role="tabpanel" aria-labelledby="settingsTab-connection" data-section="connection">
+              <section class="settingsSection isActive" id="settingsSection-tvojtatko" role="tabpanel" aria-labelledby="settingsTab-tvojtatko" data-section="tvojtatko">
+                <h2 class="settingsSectionTitle">Tvoj Tatko</h2>
+                <div class="settingsGroupBody">
+                  <div class="settingsRow">
+                    <div class="settingsInfo">
+                      <div class="settingsHint" data-i18n="settings.tvojtatko.hint">Finished boss fights go to the party's own server, which merges everyone's captures into one shared result on Discord and the logs web. Training dummies are never sent.</div>
+                    </div>
+                  </div>
+                  <label class="settingsToggle">
+                    <span class="settingsToggleLabel settingsLabel" data-i18n="settings.tvojtatko.upload">Upload boss fights to the party server</span>
+                    <span class="settingsToggleControl">
+                      <input type="checkbox" class="partyUploadCheckbox" />
+                      <span class="settingsToggleTrack" aria-hidden="true"></span>
+                    </span>
+                  </label>
+                  <div class="settingsRow">
+                    <label class="settingsLabel" for="partyUploadUrlInput" data-i18n="settings.tvojtatko.serverUrl">Server URL</label>
+                    <div class="settingsRowEnd">
+                      <input
+                        id="partyUploadUrlInput"
+                        class="partyUploadUrlInput"
+                        type="text"
+                        maxlength="200"
+                        spellcheck="false"
+                        autocomplete="off"
+                        placeholder="https://aion2-dps.tvojtatko.sk" />
+                    </div>
+                  </div>
+                  <div class="settingsRow">
+                    <label class="settingsLabel" for="partyUploadKeyInput" data-i18n="settings.tvojtatko.key">Personal key</label>
+                    <div class="settingsRowEnd">
+                      <input
+                        id="partyUploadKeyInput"
+                        class="partyUploadKeyInput"
+                        type="password"
+                        maxlength="200"
+                        spellcheck="false"
+                        autocomplete="off"
+                        placeholder="a2dps_…" />
+                    </div>
+                  </div>
+                  <div class="settingsRow">
+                    <div class="settingsInfo">
+                      <div class="settingsHint" data-i18n="settings.tvojtatko.keyHint">Your key comes from Discord: type /dpsmeter kluc in the party server.</div>
+                    </div>
+                  </div>
+                  <div class="settingsRow">
+                    <div class="settingsInfo">
+                      <div class="settingsLabel"><span data-i18n="settings.tvojtatko.lastOk">Last successful upload</span>: <span class="partyLastUpload" data-i18n="settings.tvojtatko.never">none yet</span></div>
+                    </div>
+                    <div class="settingsRowEnd">
+                      <button class="settingsAction partyTestBtn" type="button" data-i18n="settings.tvojtatko.test">Test connection</button>
+                    </div>
+                  </div>
+                  <div class="settingsRow">
+                    <div class="settingsInfo">
+                      <div class="settingsHint partyTestStatus"></div>
+                    </div>
+                  </div>
+                  <div class="settingsRow settingsRowAction">
+                    <button class="settingsAction partyWebBtn" type="button" data-i18n="settings.tvojtatko.web">Open the party logs web</button>
+                  </div>
+                </div>
+              </section>
+              <section class="settingsSection" id="settingsSection-connection" role="tabpanel" aria-labelledby="settingsTab-connection" data-section="connection" hidden>
                 <h2 class="settingsSectionTitle" data-i18n="settings.connection">Connection</h2>
                 <div class="settingsGroupBody">
                   <div class="settingsRow settingsRowInput settingsRowWide">
@@ -547,43 +612,6 @@
                       <span class="settingsToggleTrack" aria-hidden="true"></span>
                     </span>
                   </label>
-                  <!-- Fork: party upload — finished boss fights go to the party's own
-                       server, which merges everyone's captures into one result.
-                       Independent of the a2tools.app upload above. -->
-                  <h2 class="settingsSectionTitle" style="margin-top:14px">Party upload</h2>
-                  <label class="settingsToggle" title="When a boss fight ends it is sent to your party's own server, which merges everyone's captures into one shared result on Discord. Needs the server URL and your personal key (ask the bot: /dpsmeter kluc). Training dummies are never sent.">
-                    <span class="settingsToggleLabel settingsLabel">Upload boss fights to the party server</span>
-                    <span class="settingsToggleControl">
-                      <input type="checkbox" class="partyUploadCheckbox" />
-                      <span class="settingsToggleTrack" aria-hidden="true"></span>
-                    </span>
-                  </label>
-                  <div class="settingsRow">
-                    <label class="settingsLabel" for="partyUploadUrlInput">Server URL</label>
-                    <div class="settingsRowEnd">
-                      <input
-                        id="partyUploadUrlInput"
-                        class="partyUploadUrlInput"
-                        type="text"
-                        maxlength="200"
-                        spellcheck="false"
-                        autocomplete="off"
-                        placeholder="https://aion2-dps.example.com" />
-                    </div>
-                  </div>
-                  <div class="settingsRow">
-                    <label class="settingsLabel" for="partyUploadKeyInput">Personal key</label>
-                    <div class="settingsRowEnd">
-                      <input
-                        id="partyUploadKeyInput"
-                        class="partyUploadKeyInput"
-                        type="password"
-                        maxlength="200"
-                        spellcheck="false"
-                        autocomplete="off"
-                        placeholder="a2dps_…" />
-                    </div>
-                  </div>
                 </div>
                 <div class="accountCodeBox" style="display:none">
                   <div class="accountCodeLabel" data-i18n="settings.account.codePrompt">Approve this code in your browser:</div>

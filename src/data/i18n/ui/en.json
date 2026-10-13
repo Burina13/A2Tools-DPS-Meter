@@ -512,6 +512,25 @@
       "toast": "Windows notification (toast)",
       "banner": "Banner over the meter",
       "quiet": "Quiet during a boss fight (deliver after)"
+    },
+    "tvojtatko": {
+      "hint": "Finished boss fights go to the party's own server, which merges everyone's captures into one shared result on Discord and the logs web. Training dummies are never sent.",
+      "upload": "Upload boss fights to the party server",
+      "serverUrl": "Server URL",
+      "key": "Personal key",
+      "keyHint": "Your key comes from Discord: type /dpsmeter kluc in the party server.",
+      "lastOk": "Last successful upload",
+      "never": "none yet",
+      "test": "Test connection",
+      "testing": "Testing…",
+      "test_ok": "Connected — the key works.",
+      "test_rate_limited": "The key works; the server is rate limiting uploads right now.",
+      "test_bad_key": "The server answered, but refused the key — check it.",
+      "test_unreachable": "The server could not be reached.",
+      "test_server_error": "The server has a problem right now.",
+      "test_missing": "Fill in the server URL and the key first.",
+      "test_unexpected": "Unexpected answer from the server.",
+      "web": "Open the party logs web"
     }
   },
   "support": {

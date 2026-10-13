@@ -3,6 +3,41 @@
 Changes of the Burina13 fork on top of upstream A2Tools-DPS-Meter. Upstream's
 own changes are in its releases; this file tracks only what the fork adds.
 
+## party-v2.64.1 — 2026-10-13
+
+**Why this release exists:** on a player's machine, upstream's v2.0.63 MSI
+replaced the party fork. party-v2.0.62-1 still checked upstream's update
+manifest (a2tools.app), and because the fork shipped under upstream's own
+product name and identifier, the upstream installer treated our install as
+its older self and upgraded over it. Both holes are closed here.
+
+- **Own identity — installs BESIDE the genuine A2Tools meter, never over
+  it, and upstream can never again upgrade over us**: product name
+  "Tvoj Tatko DPS Meter", identifier `sk.tvojtatko.dps-meter`, its own
+  pinned WiX upgrade code, its own icon (dark badge, three bars, TT).
+  Installing this release also sweeps the fork's own older builds that
+  still wore upstream's identity (2.1.0, 2.2.0) — but deliberately NOT
+  upstream's 2.0.x line, which players may keep side by side.
+- **Versioning**: `2.<upstream patch>.<party build>` — 2.64.1 = upstream
+  v2.0.64 + party build 1. Sorts above both upstream (2.0.x) and the old
+  party line, so every install sees updates. (A `2.0.64-tt.1` style
+  pre-release tag was rejected: Windows MSI versions must be numeric and
+  the in-app comparison treats a pre-release as older at equal value.)
+- **Settings → "Tvoj Tatko", first section**: the party upload toggle, the
+  server URL (prefilled with the party server), the personal key from
+  `/dpsmeter kluc`, the last successful upload, a connection test button
+  (probes the server without storing anything: distinguishes unreachable /
+  bad key / OK) and a link to the party logs web. Upstream's A2 Tools
+  Account section stays and all upstream sending (account upload, Send Logs
+  to Dev) remains OFF unless turned on.
+- **Merged upstream v2.0.64**: themes and bar textures with a live preview,
+  the capture-device lock, deaths on the Details chart, meter update rate
+  setting, plugin decoder events — plus the Slovak translation for all the
+  new settings.
+- Tests: `tests/party-updater.test.mjs` pins the update manifest to this
+  fork's repository and fails the build if upstream's manifest or identity
+  ever creeps back in.
+
 ## party-v2.2.0 — 2026-10-13
 
 - **Real in-game artwork in Event Alerts**: events backed by a boss (Watcher

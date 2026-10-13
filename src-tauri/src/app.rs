@@ -323,6 +323,9 @@ fn party_upload_fight(app: tauri::AppHandle, record: FightRecord) {
         {
             Ok(()) => {
                 crate::party_upload::mark_sent(&state.app_data_dir, &record.id);
+                state
+                    .settings
+                    .set(crate::party_upload::LAST_OK_KEY, &crate::clock::now_ms().to_string());
                 tracing::info!("Party upload of {} accepted", record.id);
                 let _ = app.emit("party-fight-uploaded", serde_json::json!({
                     "fightId": record.id,
@@ -447,6 +450,31 @@ async fn share_status(
     tokio::task::spawn_blocking(move || share::share_status(&dir))
         .await
         .map_err(|e| e.to_string())
+}
+
+/// Fork: the Tvoj Tatko section's "test connection" button. Probes the party
+/// server with the URL and key AS TYPED (not yet saved), so the player sees
+/// whether they work before anything is stored.
+#[cfg(feature = "online")]
+#[tauri::command]
+async fn party_upload_test(
+    state: tauri::State<'_, AppState>,
+    url: String,
+    key: String,
+) -> Result<serde_json::Value, String> {
+    Ok(crate::party_upload::test(&state.http, &url, &key).await)
+}
+
+/// Fork: when the last party upload went through (ms since the epoch), read
+/// straight from the settings store so the page never shows a stale cache.
+#[tauri::command]
+fn party_upload_status(state: tauri::State<'_, AppState>) -> serde_json::Value {
+    serde_json::json!({
+        "lastOkMs": state
+            .settings
+            .get(crate::party_upload::LAST_OK_KEY)
+            .and_then(|v| v.parse::<i64>().ok()),
+    })
 }
 
 #[tauri::command]
@@ -1390,6 +1418,13 @@ const NOT_IN_THIS_BUILD: &str = "not in this build: it was built without online 
 #[tauri::command]
 async fn upload_fight(fight_id: String) -> Result<serde_json::Value, String> {
     let _ = fight_id;
+    Err(NOT_IN_THIS_BUILD.into())
+}
+
+#[cfg(not(feature = "online"))]
+#[tauri::command]
+async fn party_upload_test(url: String, key: String) -> Result<serde_json::Value, String> {
+    let _ = (url, key);
     Err(NOT_IN_THIS_BUILD.into())
 }
 
@@ -3311,6 +3346,8 @@ pub fn run() {
             export_fight_json,
             preview_share,
             upload_fight,
+            party_upload_test,
+            party_upload_status,
             share_status,
             account_status,
             account_status_cached,

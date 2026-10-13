@@ -512,6 +512,25 @@
         "gearScore": "Gear score",
         "off": "Vypnuté"
       }
+    },
+    "tvojtatko": {
+      "hint": "Dokončené boss fighty sa posielajú na server našej partie, ktorý zlúči záznamy všetkých a jeden spoločný výsledok pošle na Discord a na web s logmi. Tréningové figuríny sa neposielajú nikdy.",
+      "upload": "Posielať boss fighty na server partie",
+      "serverUrl": "Adresa servera",
+      "key": "Osobný kľúč",
+      "keyHint": "Kľúč dostaneš na Discorde: napíš /dpsmeter kluc na serveri partie.",
+      "lastOk": "Posledný úspešný upload",
+      "never": "zatiaľ žiadny",
+      "test": "Otestuj pripojenie",
+      "testing": "Testujem…",
+      "test_ok": "Pripojené — kľúč funguje.",
+      "test_rate_limited": "Kľúč funguje; server práve obmedzuje počet uploadov.",
+      "test_bad_key": "Server odpovedal, ale kľúč neprijal — skontroluj ho.",
+      "test_unreachable": "Server sa nepodarilo dosiahnuť.",
+      "test_server_error": "Server má práve problém.",
+      "test_missing": "Najprv vyplň adresu servera a kľúč.",
+      "test_unexpected": "Nečakaná odpoveď servera.",
+      "web": "Otvor web s logmi partie"
     }
   },
   "support": {
