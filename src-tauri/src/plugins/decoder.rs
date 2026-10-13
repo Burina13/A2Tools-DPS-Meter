@@ -38,6 +38,11 @@ pub struct DecoderSpec {
     /// A field that must be the player's own entity id (see the module docs).
     #[serde(default, rename = "self")]
     pub self_field: Option<String>,
+    /// Sent as soon as it is read, even to a plugin told the character,
+    /// whose events otherwise wait for the login's character record (see
+    /// `SETTLE` in the plugin host). For records that never come at login.
+    #[serde(default)]
+    pub immediate: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -62,6 +67,8 @@ pub struct Decoder {
     fields: Vec<FieldSpec>,
     /// The field that must be the player's own entity id, if any.
     pub self_field: Option<String>,
+    /// Never waits for the character record.
+    pub immediate: bool,
 }
 
 impl Decoder {
@@ -92,7 +99,7 @@ impl Decoder {
                 return Err(format!("decoder {}: \"self\" must name one of its number fields", spec.name));
             }
         }
-        Ok(Self { name: spec.name.clone(), opcode, fields: spec.fields.clone(), self_field: spec.self_field.clone() })
+        Ok(Self { name: spec.name.clone(), opcode, fields: spec.fields.clone(), self_field: spec.self_field.clone(), immediate: spec.immediate })
     }
 
     /// Decode a frame's body (the bytes after its type) into the fields.
@@ -289,5 +296,13 @@ mod tests {
         for json in bad {
             assert!(Decoder::compile(&serde_json::from_str(json).unwrap()).is_err(), "{json}");
         }
+    }
+
+    /// `immediate` is read when set and off by default; a meter without it
+    /// ignores the key.
+    #[test]
+    fn immediate_is_off_unless_set() {
+        assert!(!spec(r#"{"name":"a","opcode":"0D 90","fields":[]}"#).immediate);
+        assert!(spec(r#"{"name":"a","opcode":"0D 90","immediate":true,"fields":[]}"#).immediate);
     }
 }
