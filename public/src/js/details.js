@@ -621,6 +621,15 @@ const createDetailsUI = ({
         statEl.textContent = statText;
         nameWrapEl.appendChild(statEl);
       }
+      // Hovering the name shows the other figure: gear score beside combat
+      // power, combat power beside gear score.
+      const otherStat = getPartyStat?.() === "gearScore" ? "combatPower" : "gearScore";
+      const otherValue = Number(actorRow?.[otherStat]) || 0;
+      if (otherValue > 0) {
+        const otherLabel = labelText(`settings.partyStat.options.${otherStat}`,
+          otherStat === "gearScore" ? "Gear score" : "Combat power");
+        nameWrapEl.title = `${otherLabel}: ${otherValue.toLocaleString()}`;
+      }
       contentEl.appendChild(nameWrapEl);
 
       // Same star the meter rows use, so a supporter is marked the same way
