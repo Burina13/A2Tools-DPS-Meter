@@ -34,6 +34,7 @@ const createDetailsUI = ({
   getDetails,
   getDetailsContext,
   getDungeonId,
+  getPartyStat,
   onPinnedRowChange,
   onBack,
 }) => {
@@ -594,6 +595,8 @@ const createDetailsUI = ({
         (actorRow?.isSupporter ? " isSupporter" : "");
       nameEl.textContent = name;
       if (color) nameEl.style.color = color;
+      // Combat power or gear score after the name, as in the meter.
+      const statText = partyStatText(actorRow, getPartyStat?.());
 
       const dpsEl = document.createElement("span");
       dpsEl.className = "detailsPartyBarDps";
@@ -607,7 +610,18 @@ const createDetailsUI = ({
       pctEl.className = "detailsPartyBarPct";
       pctEl.textContent = `${pct.toFixed(1)}%`;
 
-      contentEl.appendChild(nameEl);
+      // Name and stat share the name's space, so the figures to the right
+      // stay lined up whatever the name's length.
+      const nameWrapEl = document.createElement("span");
+      nameWrapEl.className = "detailsPartyBarNameWrap";
+      nameWrapEl.appendChild(nameEl);
+      if (statText) {
+        const statEl = document.createElement("span");
+        statEl.className = "detailsPartyBarStat";
+        statEl.textContent = statText;
+        nameWrapEl.appendChild(statEl);
+      }
+      contentEl.appendChild(nameWrapEl);
 
       // Same star the meter rows use, so a supporter is marked the same way
       // wherever their name appears rather than only on the live overlay.
@@ -2943,5 +2957,12 @@ const createDetailsUI = ({
   });
   syncModeButtons();
 
-  return { open, close, isOpen, isPinned, render, updateLabels, refresh, updateGridColumns, openHistoryFight, resetDetailsMode };
+  // The party stat setting changed: redraw the party list.
+  const refreshPartyStat = () => {
+    if (!lastDetails && !detailsContext) return;
+    const ctx = buildPartyBarStats();
+    renderPartyBars(ctx?.stats || lastDetails?.perActorStats, ctx?.battleTimeMs || lastDetails?.battleTimeMs);
+  };
+
+  return { open, close, isOpen, isPinned, render, updateLabels, refresh, updateGridColumns, openHistoryFight, resetDetailsMode, refreshPartyStat };
 };

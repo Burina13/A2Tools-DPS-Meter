@@ -331,6 +331,13 @@
     "defaultMeterMode": {
       "label": "Modo de objetivo al iniciar"
     },
+    "partyStat": {
+      "label": "Junto a los nombres",
+      "options": {
+        "combatPower": "Poder de combate",
+        "gearScore": "Puntuación de equipo"
+      }
+    },
     "trainingMode": {
       "label": "Detalles en modo entrenamiento",
       "options": {
@@ -382,6 +389,7 @@
       "windowOpacity": "Cuán transparente es el fondo del medidor. Las barras y el texto no cambian.",
       "meterOpacity": "Cuán sólidas son las barras de daño de color.",
       "bossNameSize": "Tamaño del nombre del jefe u objetivo sobre las barras.",
+      "partyStat": "El número junto al nombre de cada jugador, en el medidor y en Detalles. Solo los miembros de tu grupo tienen uno.",
       "trainingMode": "En modo entrenamiento, qué muñecos muestra la ventana de detalles: todos juntos o solo el que más golpeas.",
       "allTargetsWindow": "En el modo Todos los objetivos, el medidor suma cada objetivo golpeado dentro de este tiempo antes del último golpe.",
       "debugLogging": "Escribe un registro de diagnóstico que el desarrollador puede usar para encontrar problemas.",

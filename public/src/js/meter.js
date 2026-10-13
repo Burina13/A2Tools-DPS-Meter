@@ -1,3 +1,19 @@
+// The figure beside a player's name, in the meter and in Details: combat
+// power in thousands the way players quote it ("889k"; below 500 the raw
+// number, since "0k" says nothing) or gear score in full. Empty when the party
+// roster never named the player: only your own party's members are on it.
+// Shared with details.js, which loads after this file.
+const partyStatText = (row, stat) => {
+  if (stat === "gearScore") {
+    const gearScore = Number(row?.gearScore) || 0;
+    return gearScore > 0 ? gearScore.toLocaleString() : "";
+  }
+  const combatPower = Number(row?.combatPower) || 0;
+  if (combatPower <= 0) return "";
+  const thousands = Math.round(combatPower / 1000);
+  return thousands > 0 ? `${thousands.toLocaleString()}k` : combatPower.toLocaleString();
+};
+
 const createMeterUI = ({
   elList,
   dpsFormatter,
@@ -9,6 +25,7 @@ const createMeterUI = ({
   getSortDirection,
   getPinUserToTop,
   getPlayerLimit,
+  getPartyStat,
 }) => {
   const MAX_CACHE = 32;
   const cjkRegex = /[\u3400-\u9FFF\uF900-\uFAFF]/;
@@ -20,6 +37,12 @@ const createMeterUI = ({
   let renderRowsRafId = 0;
 
   const nowMs = () => (typeof performance !== "undefined" ? performance.now() : Date.now());
+
+  // Forget what each row last drew, so the next refresh redraws it (the
+  // party stat setting changed).
+  const invalidateRows = () => {
+    for (const view of rowViewById.values()) view.lastCombatPowerText = undefined;
+  };
 
   const createRowView = (id) => {
     const rowEl = document.createElement("div");
@@ -304,18 +327,9 @@ const createMeterUI = ({
         view.lastIsCjk = isCjk;
       }
 
-      // Combat power sits beside the name, abbreviated to thousands the way
-      // players quote it — 889,100 reads as "889k", 889,545 as "890k". The
-      // exact figure stays on the row for the details panel. Below 500 the
-      // abbreviation would collapse to "0k", so show the raw number there.
-      const combatPower = Number(row.combatPower) || 0;
-      const combatPowerK = Math.round(combatPower / 1000);
-      const combatPowerText =
-        combatPower <= 0
-          ? ""
-          : combatPowerK > 0
-            ? `${combatPowerK.toLocaleString()}k`
-            : combatPower.toLocaleString();
+      // Beside the name: combat power or gear score, as Settings → Meter
+      // Settings says (partyStatText, above).
+      const combatPowerText = partyStatText(row, getPartyStat?.());
       if (view.lastCombatPowerText !== combatPowerText) {
         view.combatPowerEl.textContent = combatPowerText;
         view.combatPowerEl.style.display = combatPowerText ? "" : "none";
@@ -476,5 +490,5 @@ const createMeterUI = ({
     return view?.currentRow || null;
   };
 
-  return { updateFromRows, onResetMeterUi, getRowById };
+  return { updateFromRows, onResetMeterUi, getRowById, invalidateRows };
 };

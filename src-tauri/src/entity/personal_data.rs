@@ -18,6 +18,9 @@ pub struct PersonalData {
     /// Combat power from the party roster packet, or 0 when this player isn't in
     /// your party (the roster is the only source, so non-party players have none).
     pub combat_power: i64,
+    /// Gear score from the same roster packet; 0 when unknown, as above.
+    #[serde(default)]
+    pub gear_score: i32,
     /// Renders this player's name gold. Resolved locally against a roster the
     /// meter downloads — see `crate::supporters`; nothing about your party is
     /// ever sent anywhere to work this out.
@@ -39,6 +42,7 @@ impl PersonalData {
             analyzed_data: HashMap::new(),
             nickname,
             combat_power: 0,
+            gear_score: 0,
             is_supporter: false,
         }
     }
@@ -52,6 +56,7 @@ impl PersonalData {
             analyzed_data: HashMap::new(),
             nickname,
             combat_power: 0,
+            gear_score: 0,
             is_supporter: false,
         }
     }

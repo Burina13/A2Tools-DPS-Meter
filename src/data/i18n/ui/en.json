@@ -341,6 +341,13 @@
     "defaultMeterMode": {
       "label": "Starting target mode"
     },
+    "partyStat": {
+      "label": "Beside player names",
+      "options": {
+        "combatPower": "Combat power",
+        "gearScore": "Gear score"
+      }
+    },
     "trainingMode": {
       "label": "Details in Train mode",
       "options": {
@@ -394,6 +401,7 @@
       "windowOpacity": "How see-through the meter's background is. Bars and text stay as they are.",
       "meterOpacity": "How solid the coloured damage bars are.",
       "bossNameSize": "Size of the boss or target name above the bars.",
+      "partyStat": "The number beside each player's name, in the meter and in Details. Only your own party's members have one.",
       "trainingMode": "In Train mode, which dummies the Details window shows: all of them together, or only the one you hit hardest.",
       "allTargetsWindow": "In All Targets mode, the meter adds up every target hit within this time of the latest hit.",
       "debugLogging": "Writes a diagnostic log the developer can use to track down problems.",

@@ -331,6 +331,13 @@
     "defaultMeterMode": {
       "label": "Mode de cible au démarrage"
     },
+    "partyStat": {
+      "label": "À côté des noms",
+      "options": {
+        "combatPower": "Puissance de combat",
+        "gearScore": "Score d'équipement"
+      }
+    },
     "trainingMode": {
       "label": "Détails en mode entraînement",
       "options": {
@@ -382,6 +389,7 @@
       "windowOpacity": "La transparence du fond du compteur. Les barres et le texte ne changent pas.",
       "meterOpacity": "L'opacité des barres de dégâts colorées.",
       "bossNameSize": "Taille du nom du boss ou de la cible au-dessus des barres.",
+      "partyStat": "Le nombre à côté du nom de chaque joueur, dans le compteur et dans les détails. Seuls les membres de votre groupe en ont un.",
       "trainingMode": "En mode entraînement, quels mannequins la fenêtre Détails affiche : tous ensemble, ou seulement celui que tu frappes le plus.",
       "allTargetsWindow": "En mode Toutes les cibles, le compteur additionne chaque cible touchée dans ce délai avant le dernier coup.",
       "debugLogging": "Écrit un journal de diagnostic que le développeur peut utiliser pour trouver les problèmes.",

@@ -331,6 +331,13 @@
     "defaultMeterMode": {
       "label": "Zielmodus beim Start"
     },
+    "partyStat": {
+      "label": "Neben Spielernamen",
+      "options": {
+        "combatPower": "Kampfkraft",
+        "gearScore": "Ausrüstungswert"
+      }
+    },
     "trainingMode": {
       "label": "Details im Trainingsmodus",
       "options": {
@@ -382,6 +389,7 @@
       "windowOpacity": "Wie durchsichtig der Hintergrund des Meters ist. Balken und Text bleiben, wie sie sind.",
       "meterOpacity": "Wie deckend die farbigen Schadensbalken sind.",
       "bossNameSize": "Größe des Boss- oder Zielnamens über den Balken.",
+      "partyStat": "Die Zahl neben jedem Spielernamen, im Meter und in den Details. Nur Mitglieder deiner eigenen Gruppe haben eine.",
       "trainingMode": "Im Trainingsmodus: welche Puppen das Detailfenster zeigt – alle zusammen oder nur die, die du am stärksten triffst.",
       "allTargetsWindow": "Im Modus „Alle Ziele“ zählt das Meter alle Ziele, die innerhalb dieser Zeit vor dem letzten Treffer getroffen wurden.",
       "debugLogging": "Schreibt ein Diagnoseprotokoll, mit dem der Entwickler Probleme finden kann.",

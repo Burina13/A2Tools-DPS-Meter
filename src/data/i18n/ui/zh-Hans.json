@@ -336,6 +336,13 @@
     "defaultMeterMode": {
       "label": "启动时的目标模式"
     },
+    "partyStat": {
+      "label": "玩家名称旁",
+      "options": {
+        "combatPower": "战斗力",
+        "gearScore": "装备分数"
+      }
+    },
     "trainingMode": {
       "label": "训练模式下的详情",
       "options": {
@@ -389,6 +396,7 @@
       "windowOpacity": "计量器背景的透明程度。条形和文字不受影响。",
       "meterOpacity": "彩色伤害条的不透明程度。",
       "bossNameSize": "条形上方首领或目标名称的大小。",
+      "partyStat": "在计量器和详情中显示在每位玩家名称旁的数字。只有你自己队伍的成员才有。",
       "trainingMode": "训练模式下详情窗口显示哪些木桩：全部一起，或只显示你打得最多的那个。",
       "allTargetsWindow": "全部目标模式下，计量器汇总最后一次命中前这段时间内命中的所有目标。",
       "debugLogging": "写入开发者用于排查问题的诊断日志。",

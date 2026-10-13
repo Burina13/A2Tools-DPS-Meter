@@ -2,6 +2,8 @@ const SETTING_CHOICES = {
   defaultMeterMode: { allowed: ["bossTargets", "lastHitByMe", "allTargets", "trainTargets"], fallback: "bossTargets" },
   allTargetsWindowMs: { allowed: ["30000", "60000", "120000", "180000", "300000"], fallback: "120000" },
   trainSelectionMode: { allowed: ["all", "highestDamage"], fallback: "all" },
+  // The figure beside each player's name, in the meter and in Details.
+  partyStat: { allowed: ["combatPower", "gearScore"], fallback: "combatPower" },
 };
 const pickSettingChoice = (name, value) => {
   const { allowed, fallback } = SETTING_CHOICES[name];
@@ -49,6 +51,7 @@ class DpsApp {
       onlyShowUser: "dpsMeter.onlyShowUser",
       allTargetsWindowMs: "dpsMeter.allTargetsWindowMs",
       trainSelectionMode: "dpsMeter.trainSelectionMode",
+      partyStat: "dpsMeter.partyStat",
       meterFillOpacity: "dpsMeter.meterFillOpacity",
       barGap: "dpsMeter.barGap",
       detailsBackgroundOpacity: "dpsMeter.detailsBackgroundOpacity",
@@ -177,6 +180,7 @@ class DpsApp {
     this._lastRenderedRowsSummary = null;
     this.localPlayerId = null;
     this.trainSelectionMode = "all";
+    this.partyStat = "combatPower";
     this._detailsFlashTimer = null;
     this._meterFlashTimer = null;
     this._recentLocalIdByName = new Map();
@@ -323,6 +327,7 @@ class DpsApp {
       getSortDirection: () => this.listSortDirection,
       getPinUserToTop: () => this.pinMeToTop,
       getPlayerLimit: () => this.playerLimit,
+      getPartyStat: () => this.partyStat,
       onHoverUserRow: (row, event) => {
         if (this.shouldSuppressRowInteractions()) return;
         this.openHoverDetailsRow(row, event);
@@ -458,6 +463,7 @@ class DpsApp {
       getDetails: (row, options) => this.getDetails(row, options),
       getDetailsContext: () => this.getDetailsContext(),
       getDungeonId: () => this.lastDungeonId,
+      getPartyStat: () => this.partyStat,
       onPinnedRowChange: (rowId) => {
         const nextId = Number(rowId);
         this.pinnedDetailsRowId = Number.isFinite(nextId) && nextId > 0 ? nextId : null;
@@ -1452,6 +1458,7 @@ class DpsApp {
       // Combat power comes from the party roster packet, so it only exists for
       // players actually in your party; 0 means "unknown", not "zero CP".
       const combatPower = Math.trunc(Number(isObj ? value.combatPower : 0)) || 0;
+      const gearScore = Math.trunc(Number(isObj ? value.gearScore : 0)) || 0;
 
       rows.push({
         id: String(id),
@@ -1461,6 +1468,7 @@ class DpsApp {
         totalDamage,
         damageContribution,
         combatPower,
+        gearScore,
         isUser: (!!name && name === this.USER_NAME) || (hasLocalId && numericId === localId),
         isIdentifying,
         // Resolved in Rust against a downloaded roster; the frontend only
@@ -2370,6 +2378,8 @@ class DpsApp {
     this.allTargetsWindowDropdownBtn = document.querySelector(".allTargetsWindowDropdownBtn");
     this.allTargetsWindowDropdownMenu = document.querySelector(".allTargetsWindowDropdownMenu");
     this.trainSelectionModeDropdownBtn = document.querySelector(".trainSelectionModeDropdownBtn");
+    this.partyStatDropdownBtn = document.querySelector(".partyStatDropdownBtn");
+    this.partyStatDropdownMenu = document.querySelector(".partyStatDropdownMenu");
     this.trainSelectionModeDropdownMenu = document.querySelector(".trainSelectionModeDropdownMenu");
     this.defaultMeterModeDropdownBtn = document.querySelector(".defaultMeterModeDropdownBtn");
     this.defaultMeterModeDropdownMenu = document.querySelector(".defaultMeterModeDropdownMenu");
@@ -2432,6 +2442,7 @@ class DpsApp {
       defaultMeterMode: "bossTargets",
       allTargetsWindowMs: "120000",
       trainSelectionMode: "all",
+      partyStat: "combatPower",
     };
 
     // The meter already applied these settings. Opening a form must not change
@@ -2441,6 +2452,7 @@ class DpsApp {
     const storedAllTargetsWindowMs = this.safeGetSetting(this.storageKeys.allTargetsWindowMs) ||
       this.safeGetStorage(this.storageKeys.allTargetsWindowMs) ||
       "120000";
+    const storedPartyStat = this.safeGetSetting(this.storageKeys.partyStat) || "combatPower";
     const storedTrainSelectionMode = this.safeGetSetting(this.storageKeys.trainSelectionMode) ||
       this.safeGetStorage(this.storageKeys.trainSelectionMode) ||
       "all";
@@ -2571,6 +2583,8 @@ class DpsApp {
       window.javaBridge?.setAllTargetsWindowMs?.(selectedWindow);
     }
 
+    this.partyStat = pickSettingChoice("partyStat", storedPartyStat);
+    this.settingsSelections.partyStat = this.partyStat;
     const selectedMode = pickSettingChoice("trainSelectionMode", storedTrainSelectionMode);
     this.trainSelectionMode = selectedMode;
     this.settingsSelections.trainSelectionMode = selectedMode;
@@ -3311,6 +3325,11 @@ class DpsApp {
       { value: "trainTargets", label: "TRAIN" },
     ];
 
+    const partyStatOptions = [
+      { value: "combatPower", label: this.i18n?.t("settings.partyStat.options.combatPower", "Combat power") },
+      { value: "gearScore", label: this.i18n?.t("settings.partyStat.options.gearScore", "Gear score") },
+    ];
+
     const trainModeOptions = [
       { value: "all", label: this.i18n?.t("settings.trainingMode.options.all", "All") },
       {
@@ -3377,6 +3396,19 @@ class DpsApp {
         this.safeSetSetting(this.storageKeys.allTargetsWindowMs, value);
         window.javaBridge?.setAllTargetsWindowMs?.(value);
         if (!this.isCollapse) this.fetchDps();
+      }
+    );
+
+    setupDropdown(
+      this.partyStatDropdownBtn,
+      this.partyStatDropdownMenu,
+      partyStatOptions,
+      this.settingsSelections.partyStat,
+      (value) => {
+        if (!value) return;
+        this.settingsSelections.partyStat = value;
+        this.applyPartyStat(value);
+        this.safeSetSetting(this.storageKeys.partyStat, value);
       }
     );
 
@@ -4788,6 +4820,15 @@ class DpsApp {
   //
   // Custom dropdowns and live appearance values apply directly: replaying
   // their edit handlers would write back or resend backend combat parameters.
+  // Combat power or gear score beside each name: the meter rows redraw on
+  // their next refresh, an open Details panel redraws its party list now.
+  applyPartyStat(value) {
+    this.partyStat = pickSettingChoice("partyStat", value);
+    this.meterUI?.invalidateRows?.();
+    this.detailsUI?.refreshPartyStat?.();
+    if (!this.isCollapse) this.fetchDps?.();
+  }
+
   applyRemoteSettingChange(key, value) {
     // A name typed in the Settings window. That window already told the
     // backend; this one only has to stop believing the old name, or it would
@@ -4855,6 +4896,7 @@ class DpsApp {
       defaultMeterMode: "defaultMeterMode",
       trainSelectionMode: "trainSelectionMode",
       allTargetsWindowMs: "allTargetsWindow",
+      partyStat: "partyStat",
     };
     for (const [name, control] of Object.entries(choices)) {
       if (key !== this.storageKeys[name]) continue;
@@ -4866,6 +4908,8 @@ class DpsApp {
         if (window.A2_VIEW === "main") window.javaBridge?.updateOverlaySize?.();
       } else if (name === "trainSelectionMode") {
         this.trainSelectionMode = normalized;
+      } else if (name === "partyStat") {
+        this.applyPartyStat(normalized);
       }
       this.syncSettingsDropdownSelection(this[`${control}DropdownBtn`], this[`${control}DropdownMenu`], normalized);
       return;
