@@ -467,6 +467,7 @@ async fn party_upload_test(
 
 /// Fork: when the last party upload went through (ms since the epoch), read
 /// straight from the settings store so the page never shows a stale cache.
+#[cfg(feature = "online")]
 #[tauri::command]
 fn party_upload_status(state: tauri::State<'_, AppState>) -> serde_json::Value {
     serde_json::json!({
@@ -1426,6 +1427,12 @@ async fn upload_fight(fight_id: String) -> Result<serde_json::Value, String> {
 async fn party_upload_test(url: String, key: String) -> Result<serde_json::Value, String> {
     let _ = (url, key);
     Err(NOT_IN_THIS_BUILD.into())
+}
+
+#[cfg(not(feature = "online"))]
+#[tauri::command]
+fn party_upload_status() -> serde_json::Value {
+    serde_json::json!({ "lastOkMs": null })
 }
 
 #[cfg(not(feature = "online"))]

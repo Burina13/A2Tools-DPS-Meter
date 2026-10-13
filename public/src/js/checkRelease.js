@@ -1,8 +1,10 @@
 (() => {
-  // Fork: updates come from the PARTY fork's releases, not a2tools.app —
-  // upstream's installer would silently replace the party upload and Event
-  // Alerts features. latest-party.json lives on this repo's main branch and
-  // is updated by the release run together with the GitHub release.
+  // Fork: updates come from the PARTY fork's releases, never from the
+  // upstream project's CDN — upstream's installer would silently replace the
+  // party upload and Event Alerts features (it did once, 13.10.2026).
+  // latest-party.json lives on this repo's main branch and is updated by the
+  // release run together with the GitHub release. tests/party-updater.test.mjs
+  // fails the build if an upstream endpoint ever appears in this file.
   const CDN_MANIFEST =
     "https://raw.githubusercontent.com/Burina13/A2Tools-DPS-Meter/main/latest-party.json";
   const START_DELAY = 800,
