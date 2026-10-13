@@ -37,6 +37,7 @@ const PAYLOAD = (now) => ({
       id: "abyss-siege", nazovSk: "Abyss Siege Boss", nazovEn: "Abyss Siege Boss",
       ikona: "🏰", kategoria: "abyss", skupina: "", miesto: "Abyss",
       trvanieMin: 0, dolezite: true, vyskyty: [now + 600],
+      ikonaUrl: "https://aion2-logs.tvojtatko.sk/portret/2600084.webp",
     },
   ],
   bossy: [
@@ -55,6 +56,11 @@ test("parseSchedule normalizes events and merges field bosses", () => {
   const gartua = s.events.find((e) => e.id === "boss-gartua");
   assert.equal(gartua.category, "field-bossy");
   assert.deepEqual(Array.from(gartua.occurrences), [nowVal() + 3600]);
+  // real artwork: ikonaUrl passes through; events without one get "" and the
+  // UI draws a grey text badge instead of an emoji placeholder
+  const siege = s.events.find((e) => e.id === "abyss-siege");
+  assert.equal(siege.iconUrl, "https://aion2-logs.tvojtatko.sk/portret/2600084.webp");
+  assert.equal(s.events.find((e) => e.id === "rift").iconUrl, "");
   assert.equal(api.parseSchedule({ verzia: 2, eventy: [] }), null);
   assert.equal(api.parseSchedule(null), null);
 });

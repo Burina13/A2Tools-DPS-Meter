@@ -7160,6 +7160,40 @@ html.a2-offline .historyUploadBtn {
   font-size: 20px;
   line-height: 1;
 }
+/* Real event artwork (boss portraits) + grey text fallback — no emoji dots. */
+.eventAlertsCardIcon.isImg {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex: none;
+}
+.eventAlertsCardIcon.isFallback,
+.eventAlertBannerImg.isFallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: rgba(130, 138, 160, 0.25);
+  color: #aab2c5;
+  font-size: 11px;
+  font-variation-settings: "wght" 700;
+  flex: none;
+}
+.eventAlertBannerImg.isImg {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  object-fit: cover;
+  vertical-align: -3px;
+}
+.eventAlertBannerImg.isFallback {
+  width: 18px;
+  height: 18px;
+  font-size: 9px;
+}
 .eventAlertsCardNames {
   flex: 1;
   min-width: 0;

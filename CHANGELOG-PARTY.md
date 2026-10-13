@@ -3,6 +3,18 @@
 Changes of the Burina13 fork on top of upstream A2Tools-DPS-Meter. Upstream's
 own changes are in its releases; this file tracks only what the fork adds.
 
+## party-v2.2.0 — 2026-10-13
+
+- **Real in-game artwork in Event Alerts**: events backed by a boss (Watcher
+  Kaira, the Executors, all four field bosses) show the boss portrait from
+  the party log web (`ikonaUrl` in `/api/eventy`) instead of an emoji, both
+  on the settings cards and in the overlay banner.
+  - Events with no artwork (rifts, sieges, resets…) draw a grey two-letter
+    badge — never an emoji/dot placeholder; missing ones are logged to the
+    console (`[eventAlerts] no icon artwork for: …`).
+  - Class icons next to players in the meter and skill icons in the details
+    panel were already real game art upstream and are unchanged.
+
 ## party-v2.1.0 — 2026-10-13
 
 - **Event Alerts** (Settings → Event Alerts): sound, Windows toast and an

@@ -87,6 +87,10 @@ function createEventAlertsCore({
           nameSk: String(raw.nazovSk || raw.nazovEn || raw.id),
           nameEn: String(raw.nazovEn || raw.nazovSk || raw.id),
           icon: String(raw.ikona || "•"),
+          // Real in-game artwork (boss portraits via the party log web); when
+          // the server has no image for an event, the UI draws a grey text
+          // badge instead of an emoji placeholder and logs it as missing.
+          iconUrl: String(raw.ikonaUrl || ""),
           category: CATEGORIES.includes(raw.kategoria) ? raw.kategoria : "denne",
           place: String(raw.miesto || ""),
           durationMin: Math.max(0, Number(raw.trvanieMin) || 0),
@@ -429,7 +433,8 @@ if (typeof module !== "undefined" && module.exports) {
         document.body.appendChild(banner);
       }
       const { title, body } = core.alertTexts(alert, lang());
-      banner.querySelector(".eventAlertBannerIcon").textContent = alert.event.icon;
+      const iconHolder = banner.querySelector(".eventAlertBannerIcon");
+      iconHolder.replaceChildren(iconNode(alert.event, "eventAlertBannerImg"));
       banner.querySelector(".eventAlertBannerText").textContent =
         `${core.eventName(alert.event, lang())} — ${body}`;
       const snoozeBtn = banner.querySelector(".eventAlertBannerSnooze");
@@ -497,6 +502,31 @@ if (typeof module !== "undefined" && module.exports) {
     return n;
   };
 
+  // Real event artwork (server-provided boss portraits); events without one
+  // get a grey two-letter badge, never an emoji placeholder, and are logged
+  // once so the missing list can be read from the console.
+  const missingIconIds = new Set();
+  const iconFallback = (ev, cls) => {
+    if (!missingIconIds.has(ev.id)) {
+      missingIconIds.add(ev.id);
+      console.info("[eventAlerts] no icon artwork for:", ev.id);
+    }
+    const initials = (ev.nameEn || ev.id).split(/\s+/)
+      .map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+    const badge = el("span", cls + " isFallback", initials);
+    badge.title = ev.nameEn;
+    return badge;
+  };
+  const iconNode = (ev, cls) => {
+    if (!ev.iconUrl) return iconFallback(ev, cls);
+    const img = el("img", cls + " isImg");
+    img.src = ev.iconUrl;
+    img.alt = ev.nameEn;
+    img.loading = "lazy";
+    img.addEventListener("error", () => img.replaceWith(iconFallback(ev, cls)));
+    return img;
+  };
+
   const renderSection = () => {
     const root = document.querySelector(".eventAlertsGroups");
     if (!root) return;
@@ -540,7 +570,7 @@ if (typeof module !== "undefined" && module.exports) {
         const card = el("div", "eventAlertsCard" + (cfg.on ? " isOn" : ""));
 
         const row = el("div", "eventAlertsCardRow");
-        row.appendChild(el("span", "eventAlertsCardIcon", ev.icon));
+        row.appendChild(iconNode(ev, "eventAlertsCardIcon"));
         const names = el("div", "eventAlertsCardNames");
         names.appendChild(el("div", "eventAlertsCardName", core.eventName(ev, L)));
         const next = el("div", "eventAlertsCardNext", core.nextText(ev, L));
