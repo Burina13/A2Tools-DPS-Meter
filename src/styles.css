@@ -7346,6 +7346,13 @@ html.a2-offline .historyUploadBtn {
   height: 0;
 }
 
+/* ── Fork: Tvoj Tatko section — its hints are always-on explanations, not
+   the upstream "control unavailable" notes, so they are simply shown. ───── */
+#settingsSection-tvojtatko .settingsHint {
+  display: block;
+  max-width: 60ch;
+}
+
 /* ── Fork: Event Alerts (Settings section + banner in the main window) ───── */
 
 .eventAlertsMeta {
