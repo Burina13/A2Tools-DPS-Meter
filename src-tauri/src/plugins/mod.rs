@@ -18,7 +18,7 @@ pub mod decoder;
 use std::collections::{HashMap, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Condvar, Mutex, RwLock};
 use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
@@ -51,7 +51,9 @@ const MAX_STORED: usize = 1024 * 1024;
 /// How long a decoded event waits before it is stamped with the character and
 /// sent. At login the game sends some data (the pet list) a few records
 /// before the one that says which character is playing; the wait lets that
-/// record land first, so the data is filed under the right character.
+/// record land first, so the data is filed under the right character. Only
+/// plugins that are told the character (`events:character`) wait, and not
+/// for decoders marked `immediate`; the others get each event as it is read.
 const SETTLE: Duration = Duration::from_millis(500);
 /// Events kept per plugin for the run, replayed to its window when it opens.
 const MAX_LOGGED: usize = 20_000;
@@ -125,6 +127,12 @@ fn plugins_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 /// A decoded event waiting out `SETTLE`.
 struct Pending {
     at: Instant,
+    /// Waits out `SETTLE` (the plugin is told the character, and the
+    /// decoder isn't `immediate`).
+    settle: bool,
+    /// When the record was read, unix ms: plugins get it as `at`, so one
+    /// can tell how old an event is however long it waited.
+    read_ms: i64,
     plugin: String,
     event: String,
     data: Value,
@@ -138,6 +146,8 @@ pub struct PluginHost {
     loaded: RwLock<Vec<Loaded>>,
     errors: RwLock<Vec<PluginInfo>>,
     pending: Mutex<Vec<Pending>>,
+    /// Wakes the flusher when an event is queued.
+    queued: Condvar,
     log: Mutex<HashMap<String, VecDeque<Value>>>,
     seq: Mutex<u64>,
     run: String,
@@ -154,6 +164,7 @@ impl Default for PluginHost {
             loaded: RwLock::default(),
             errors: RwLock::default(),
             pending: Mutex::default(),
+            queued: Condvar::new(),
             log: Mutex::default(),
             seq: Mutex::new(0),
             run,
@@ -173,6 +184,26 @@ fn character(app: &tauri::AppHandle) -> Option<Value> {
             "class": p.class.map(|c| c.class_name().to_string()),
         })
     })
+}
+
+/// Take the events that may go now, in order: one that doesn't settle, or
+/// has waited out `SETTLE`, unless an earlier event of its plugin is still
+/// waiting (an `immediate` soul pickup never overtakes the pet list before it).
+fn take_ready(pending: &mut Vec<Pending>, now: Instant) -> Vec<Pending> {
+    let mut held: Vec<String> = Vec::new();
+    let mut ready = Vec::new();
+    for p in std::mem::take(pending) {
+        let due = !p.settle || now.duration_since(p.at) >= SETTLE;
+        if due && !held.contains(&p.plugin) {
+            ready.push(p);
+        } else {
+            if !held.contains(&p.plugin) {
+                held.push(p.plugin.clone());
+            }
+            pending.push(p);
+        }
+    }
+    ready
 }
 
 fn valid_id(id: &str) -> bool {
@@ -264,8 +295,19 @@ impl PluginHost {
             std::thread::Builder::new()
                 .name("plugin-events".into())
                 .spawn(move || loop {
-                    std::thread::sleep(Duration::from_millis(150));
-                    host.flush(&app);
+                    // Woken by each queued event; the timeout lets settling
+                    // events go once their wait is over.
+                    let ready = {
+                        let mut pending = host.pending.lock().unwrap_or_else(|p| p.into_inner());
+                        let mut ready = take_ready(&mut pending, Instant::now());
+                        if ready.is_empty() {
+                            let wait = if pending.is_empty() { Duration::from_secs(1) } else { Duration::from_millis(50) };
+                            pending = host.queued.wait_timeout(pending, wait).unwrap_or_else(|p| p.into_inner()).0;
+                            ready = take_ready(&mut pending, Instant::now());
+                        }
+                        ready
+                    };
+                    host.flush(&app, ready);
                 })
                 .ok();
         }
@@ -300,29 +342,27 @@ impl PluginHost {
                         continue;
                     }
                 }
+                let settle = !d.immediate && plugin.manifest.permissions.iter().any(|p| p == "events:character");
                 self.pending.lock().unwrap_or_else(|p| p.into_inner()).push(Pending {
                     at: Instant::now(),
+                    settle,
+                    read_ms: std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .map(|d| d.as_millis() as i64)
+                        .unwrap_or_default(),
                     plugin: plugin.manifest.id.clone(),
                     event: format!("decoded:{}", d.name),
                     data,
                 });
+                self.queued.notify_one();
             }
         }
     }
 
-    /// Send the events that have waited out `SETTLE`: number them, stamp them
+    /// Send events that are ready (`take_ready`): number them, stamp them
     /// with the character (for plugins allowed to know it), keep them in the
     /// run's log, and pass them to the plugin's window if it is open.
-    fn flush(&self, app: &tauri::AppHandle) {
-        let ready: Vec<Pending> = {
-            let mut pending = self.pending.lock().unwrap_or_else(|p| p.into_inner());
-            if pending.is_empty() {
-                return;
-            }
-            let now = Instant::now();
-            let split = pending.iter().position(|p| now.duration_since(p.at) < SETTLE).unwrap_or(pending.len());
-            pending.drain(..split).collect()
-        };
+    fn flush(&self, app: &tauri::AppHandle, ready: Vec<Pending>) {
         if ready.is_empty() {
             return;
         }
@@ -343,6 +383,7 @@ impl PluginHost {
                 "seq": seq,
                 "event": item.event,
                 "data": item.data,
+                "at": item.read_ms,
                 "character": if allowed { who.clone() } else { None },
             });
             {
@@ -1156,7 +1197,8 @@ fn percent_decode(s: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{base64, content_policy, inline_page, inlined_policy, within_reach};
+    use super::{base64, content_policy, inline_page, inlined_policy, take_ready, within_reach, Pending, SETTLE};
+    use std::time::{Duration, Instant};
 
     #[test]
     fn a_window_left_on_a_screen_goes_back_there_and_one_off_every_screen_does_not() {
@@ -1226,5 +1268,35 @@ mod tests {
         assert!(policy.contains("connect-src 'none'"));
         // A path that is not a plugin id adds no folder.
         assert!(!content_policy("../x").contains("/../x/"));
+    }
+
+    fn event(plugin: &str, name: &str, settle: bool, at: Instant) -> Pending {
+        Pending { at, settle, read_ms: 0, plugin: plugin.into(), event: name.into(), data: serde_json::Value::Null }
+    }
+
+    fn names(events: &[Pending]) -> Vec<&str> {
+        events.iter().map(|p| p.event.as_str()).collect()
+    }
+
+    /// A soul pickup (immediate) goes at once, unless the login's pet list,
+    /// which waits for the character record, came before it: then it waits
+    /// behind it, so the list never replaces counts the pickup already raised.
+    #[test]
+    fn an_immediate_event_goes_at_once_but_not_ahead_of_its_plugins_waiting_ones() {
+        let now = Instant::now();
+        let mut pending = vec![event("pets", "soul", false, now), event("cube", "spawn", false, now)];
+        assert_eq!(names(&take_ready(&mut pending, now)), ["soul", "spawn"]);
+        assert!(pending.is_empty());
+
+        let mut pending = vec![
+            event("pets", "list", true, now),
+            event("pets", "soul", false, now),
+            event("cube", "spawn", false, now),
+        ];
+        assert_eq!(names(&take_ready(&mut pending, now)), ["spawn"], "another plugin's event isn't held");
+        assert_eq!(names(&pending), ["list", "soul"]);
+        let later = now + SETTLE + Duration::from_millis(1);
+        assert_eq!(names(&take_ready(&mut pending, later)), ["list", "soul"]);
+        assert!(pending.is_empty());
     }
 }

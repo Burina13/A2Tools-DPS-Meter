@@ -37,7 +37,7 @@
   const deliverLogged = (e) => {
     if (typeof e?.seq !== "number" || e.seq <= delivered) return;
     delivered = e.seq;
-    deliver(e.event, e.data, { character: e.character ?? null });
+    deliver(e.event, e.data, { character: e.character ?? null, at: e.at ?? null });
     if (ready) saveCursor();
   };
   // Events that arrive before the page knows the run and the manifest.

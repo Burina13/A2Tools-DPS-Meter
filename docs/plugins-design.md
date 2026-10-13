@@ -111,6 +111,7 @@ A plugin that needs game data describes the packets and fields it wants. The met
 - The meter hooks every decoded game frame at the single point all frames already pass through (`StreamProcessor::parse_perfect_packet`), compares the opcode, and reads the fields in order (`u8`, `u16`, `u32`, `u64`, `i32`, `varint`, `skip:N`).
 - Numbers only. No string fields exist, so no names can ever be extracted.
 - `self` is required: it names the entity field, and the meter drops the event unless that entity is the local player (`DataStorage::local_player_id`). This is what enforces "your own character only".
+- Events reach a plugin as they are read, with `at` (unix ms) in their meta. A plugin with `events:character` gets them half a second later instead, stamped with the character: at login the game sends some data (the pet list) just before the record saying who is playing. A decoder with `"immediate": true` skips that wait, for records that never come at login (a soul picked up); it still never overtakes an earlier event of its plugin that is waiting. Meters before this ignore the key.
 - At most 16 fields; events per second capped.
 - v1 covers whole frames only. Records embedded mid-frame (the meter's own `scan_records`) are a later extension if a plugin needs them.
 
