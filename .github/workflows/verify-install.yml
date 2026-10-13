@@ -1,0 +1,91 @@
+# Fork: proves the rebranded MSI behaves on a clean Windows machine. Run by
+# hand after a release (`gh workflow run verify-install.yml -f tag=party-v2.64.1`).
+#
+# What it proves, in order:
+# 1. The fork's OLD build (party-v2.2.0, still under upstream's identity)
+#    is swept when the rebranded meter installs — nobody keeps both.
+# 2. The rebranded meter lands as its own product ("Tvoj Tatko DPS Meter",
+#    its own Program Files directory, its own uninstall entry).
+# 3. The genuine upstream meter then installs BESIDE it and touches nothing:
+#    both uninstall entries exist at the end. An upstream update can only
+#    ever replace the upstream product, because the upgrade codes differ.
+name: Verify MSI install
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Party release tag whose MSI to verify"
+        required: true
+        default: "party-v2.64.1"
+
+jobs:
+  install:
+    name: Install on clean Windows
+    runs-on: windows-latest
+    steps:
+      - name: Download the MSIs
+        shell: pwsh
+        run: |
+          $tag = "${{ inputs.tag }}"
+          $repo = "https://github.com/Burina13/A2Tools-DPS-Meter/releases/download"
+          # The rebranded release under test.
+          $rel = Invoke-RestMethod "https://api.github.com/repos/Burina13/A2Tools-DPS-Meter/releases/tags/$tag"
+          $msi = $rel.assets | Where-Object name -like "*.msi" | Select-Object -First 1
+          Invoke-WebRequest $msi.browser_download_url -OutFile new.msi
+          # The fork's last old-identity build.
+          Invoke-WebRequest "$repo/party-v2.2.0/A2Tools-DPS-Meter_2.2.0_x64_en-US.msi" -OutFile old-party.msi
+          # The genuine upstream meter, pinned by the checksum its manifest names.
+          $manifest = Invoke-RestMethod "https://a2tools.app/latest-v2.json"
+          Invoke-WebRequest $manifest.msiUrl -OutFile upstream.msi
+          $hash = (Get-FileHash upstream.msi -Algorithm SHA256).Hash.ToLower()
+          if ($hash -ne $manifest.msiSha256) { throw "upstream MSI checksum mismatch" }
+          Get-ChildItem *.msi
+
+      - name: Install the old party build, then the rebranded one over it
+        shell: pwsh
+        run: |
+          Start-Process msiexec -ArgumentList '/i','old-party.msi','/qn','/norestart' -Wait
+          if (-not (Test-Path "C:\Program Files\A2Tools DPS Meter")) { throw "old party build did not install" }
+          Start-Process msiexec -ArgumentList '/i','new.msi','/qn','/norestart' -Wait
+
+      - name: The rebranded meter is its own product and swept the old build
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "C:\Program Files\Tvoj Tatko DPS Meter")) { throw "Tvoj Tatko DPS Meter not in Program Files" }
+          $entries = Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*",
+                                      "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*" -ErrorAction SilentlyContinue
+          $tt = $entries | Where-Object DisplayName -eq "Tvoj Tatko DPS Meter"
+          if (-not $tt) { throw "no uninstall entry for Tvoj Tatko DPS Meter" }
+          Write-Host "Tvoj Tatko DPS Meter $($tt.DisplayVersion) by $($tt.Publisher)"
+          $old = $entries | Where-Object { $_.DisplayName -eq "A2Tools DPS Meter" -and $_.DisplayVersion -eq "2.2.0" }
+          if ($old) { throw "the old party build (2.2.0) survived the install" }
+          $exe = Get-ChildItem "C:\Program Files\Tvoj Tatko DPS Meter" -Filter *.exe | Select-Object -First 1
+          Write-Host "exe: $($exe.Name), product: $($exe.VersionInfo.ProductName), version: $($exe.VersionInfo.ProductVersion)"
+
+      - name: The genuine upstream meter installs beside it and both remain
+        shell: pwsh
+        run: |
+          Start-Process msiexec -ArgumentList '/i','upstream.msi','/qn','/norestart' -Wait
+          if (-not (Test-Path "C:\Program Files\A2Tools DPS Meter")) { throw "upstream did not install" }
+          if (-not (Test-Path "C:\Program Files\Tvoj Tatko DPS Meter")) { throw "upstream removed Tvoj Tatko DPS Meter" }
+          $entries = Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*",
+                                      "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*" -ErrorAction SilentlyContinue
+          $names = $entries | Where-Object { $_.DisplayName -like "*DPS Meter*" } |
+                   ForEach-Object { "$($_.DisplayName) $($_.DisplayVersion)" }
+          Write-Host ($names -join "`n")
+          if (-not ($entries | Where-Object DisplayName -eq "A2Tools DPS Meter")) { throw "no upstream uninstall entry" }
+          if (-not ($entries | Where-Object DisplayName -eq "Tvoj Tatko DPS Meter")) { throw "no Tvoj Tatko uninstall entry" }
+
+      - name: The embedded updater knows only the party manifest (best effort)
+        shell: pwsh
+        run: |
+          # Tauri may compress embedded assets; a plain string scan of the exe
+          # is informational only. The unit test pins the manifest URL either way.
+          $exe = Get-ChildItem "C:\Program Files\Tvoj Tatko DPS Meter" -Filter *.exe | Select-Object -First 1
+          $bytes = [System.IO.File]::ReadAllBytes($exe.FullName)
+          $text = [System.Text.Encoding]::ASCII.GetString($bytes)
+          $party = $text.Contains("latest-party.json")
+          $upstream = $text.Contains("a2tools.app/latest-v2.json")
+          Write-Host "plain-text scan: party manifest=$party, upstream manifest=$upstream"
+          if ($upstream) { throw "upstream manifest URL found in the binary" }
