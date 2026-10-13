@@ -110,7 +110,8 @@
       "selfHealing": "Vlastné liečenie",
       "multiHitDamage": "Multi-hit damage",
       "multiHitHits": "Multi-hity",
-      "maxHp": "Max HP"
+      "maxHp": "Max HP",
+      "deaths": "Smrti"
     },
     "titleFor": "pre",
     "titleVs": "vs",
@@ -167,7 +168,10 @@
     "healTimingNote": "Tento boj nemá časy healov (nahraný staršou verziou).",
     "chart": {
       "bossHp": "HP bossa",
-      "ping": "Ping"
+      "ping": "Ping",
+      "death": "Smrť",
+      "died": "zomrel o",
+      "downFor": "mŕtvy"
     },
     "hpsChart": "Healing za sekundu",
     "sectionChart": "Graf",
@@ -295,7 +299,12 @@
         "frost": "Frost",
         "natura": "Natura",
         "obsidian": "Obsidian",
-        "varian": "Varian"
+        "varian": "Varian",
+        "aion2Classes": "AION2 (farby tried)",
+        "aion2ClassesVivid": "AION2 (farby tried, sýte)",
+        "aion2Spectrum": "Spektrum",
+        "aion2Aurora": "Aurora",
+        "aion2Sunset": "Západ slnka"
       }
     },
     "language": {
@@ -399,7 +408,12 @@
       "debugLogging": "Píše diagnostický log, podľa ktorého vývojár dohľadá problémy.",
       "saveRawPackets": "Nahráva surovú hernú prevádzku k hláseniam chýb. Ladiace logovanie sa zapne spolu s tým.",
       "globalHotkeys": "Klávesy nižšie fungujú všade, aj keď je hra v popredí. Vypnuté sa uvoľnia iným programom. Na Linuxe ich registruje tvoje prostredie a môže si vypýtať potvrdenie.",
-      "pluginDevMode": "Načítava pluginy z priečinkov na tomto počítači, na ich vývoj a testovanie. Nie sú preverené, načítavaj len pluginy, ktorým veríš."
+      "pluginDevMode": "Načítava pluginy z priečinkov na tomto počítači, na ich vývoj a testovanie. Nie sú preverené, načítavaj len pluginy, ktorým veríš.",
+      "meterSaturation": "Ako sýte sú farby pásikov: nižšie = jemnejšie, vyššie = výraznejšie.",
+      "partyStat": "Číslo vedľa mena každého hráča, v metri aj v Details. Majú ho len členovia tvojej party.",
+      "barTexture": "Vzor cez pásiky metra. Poďakovanie za podporu A2 Tools.",
+      "textureOffset": "Každý pásik začína textúru inde, takže nevyzerajú všetky rovnako.",
+      "updateRate": "Ako často sa čísla metra obnovujú. Rýchlejšie ukáže zásahy skôr, ale berie viac CPU."
     },
     "globalHotkeys": "Používať klávesy",
     "hotkeyConsent": {
@@ -460,6 +474,44 @@
       "toast": "Windows notifikácia (toast)",
       "banner": "Banner nad metrom",
       "quiet": "Ticho počas boja s bossom (doručí po boji)"
+    },
+    "textureOffset": "Posunúť textúry",
+    "barTexture": {
+      "label": "Textúra pásikov",
+      "supportersOnly": "Pre podporovateľov: prihlás sa vyššie v sekcii A2 Tools Account, aby si ju mohol použiť.",
+      "options": {
+        "none": "Žiadna",
+        "flames": "Plamene",
+        "crystal": "Ľadový kryštál",
+        "glacier": "Ľadovec",
+        "feathers": "Perie",
+        "wing": "Krídlo",
+        "storm": "Búrka",
+        "nebula": "Hmlovina",
+        "galaxy": "Galaxia",
+        "aura": "Aura"
+      }
+    },
+    "barPreview": "Náhľad",
+    "meterSaturation": {
+      "label": "Sýtosť farieb pásikov"
+    },
+    "updateRate": {
+      "label": "Obnovovanie metra",
+      "options": {
+        "100": "0,1 s",
+        "200": "0,2 s (predvolené)",
+        "250": "0,25 s",
+        "500": "0,5 s"
+      }
+    },
+    "partyStat": {
+      "label": "Vedľa mien hráčov",
+      "options": {
+        "combatPower": "Bojová sila",
+        "gearScore": "Gear score",
+        "off": "Vypnuté"
+      }
     }
   },
   "support": {
