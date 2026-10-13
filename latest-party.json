@@ -1,0 +1,6 @@
+{
+  "version": "2.1.0",
+  "notes": "Event Alerts (Settings → Event Alerts), Slovak UI, fork-hosted updates. See CHANGELOG-PARTY.md.",
+  "msiUrl": "https://github.com/Burina13/A2Tools-DPS-Meter/releases/download/party-v2.1.0/A2Tools-DPS-Meter_2.1.0_x64_en-US.msi",
+  "msiSha256": "8b09e199d53439104ad9eda2ca3ad05a04a1d857869de6cfae52dfe15775ea71"
+}
