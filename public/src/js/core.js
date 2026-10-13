@@ -1162,7 +1162,10 @@ class DpsApp {
 
       this._lastBattleTimeMs = null;
       this._battleTimeVisible = false;
-      this.battleTime.setVisible(false);
+      // A status message keeps the line shown: hiding it here only for
+      // updateConnectionStatusUi to show it again changed the window's classes
+      // every 100 ms, each change a layout and a window-size check.
+      this.battleTime.setVisible(!!this._connectionStatusOverride);
       this.updateConnectionStatusUi();
       return;
     }
@@ -1186,7 +1189,8 @@ class DpsApp {
 
       const shouldBeVisible = this._battleTimeVisible && !this.isCollapse;
 
-      this.battleTime.setVisible(shouldBeVisible);
+      // As above: a status message keeps the line shown.
+      this.battleTime.setVisible(shouldBeVisible || !!this._connectionStatusOverride);
       if (shouldBeVisible) {
         this.battleTime.update(now, this._lastBattleTimeMs);
       }
@@ -5594,7 +5598,14 @@ class DpsApp {
     this.clearConnectionStatusOverride();
   }
 
+  // Called every 100 ms while idle. Writing the same text again still
+  // replaces the text node, and WebKit then lays out and repaints the window
+  // each time; only a change is written.
   applyConnectionStatusOverride(text) {
+    const root = this.battleTimeRoot.classList;
+    if (this._connectionStatusOverride && this.analysisStatusEl.textContent === text
+        && this.analysisStatusEl.style.display === "" && root.contains("isVisible")
+        && root.contains("state-idle")) return;
     this._connectionStatusOverride = true;
     this.battleTimeRoot.classList.add("isVisible", "state-idle");
     this.analysisStatusEl.textContent = text;
