@@ -252,6 +252,11 @@ impl CaptureDispatcher {
                     if !from_game_port || !contains_any(&cap.data, &COMBAT_SIGNATURES) {
                         continue;
                     }
+                    // A device picked in Settings stays the one captured: the
+                    // lock never moves off it to another.
+                    if self.port_detector.preferred_device().is_some_and(|pref| !device_matches(&pref, Some(other))) {
+                        continue;
+                    }
                     let slot = elsewhere.entry(other.to_string()).or_insert((0, now));
                     if now - slot.1 > SIGNATURE_WINDOW_MS {
                         slot.0 = 0;
