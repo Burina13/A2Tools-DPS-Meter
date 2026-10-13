@@ -18,7 +18,7 @@ pub mod decoder;
 use std::collections::{HashMap, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Condvar, Mutex, RwLock};
 use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
@@ -51,7 +51,9 @@ const MAX_STORED: usize = 1024 * 1024;
 /// How long a decoded event waits before it is stamped with the character and
 /// sent. At login the game sends some data (the pet list) a few records
 /// before the one that says which character is playing; the wait lets that
-/// record land first, so the data is filed under the right character.
+/// record land first, so the data is filed under the right character. Only
+/// plugins that are told the character (`events:character`) wait; the others
+/// get each event as it is read.
 const SETTLE: Duration = Duration::from_millis(500);
 /// Events kept per plugin for the run, replayed to its window when it opens.
 const MAX_LOGGED: usize = 20_000;
@@ -125,6 +127,11 @@ fn plugins_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 /// A decoded event waiting out `SETTLE`.
 struct Pending {
     at: Instant,
+    /// Waits out `SETTLE` (the plugin is told the character).
+    settle: bool,
+    /// When the record was read, unix ms: plugins get it as `at`, so one
+    /// can tell how old an event is however long it waited.
+    read_ms: i64,
     plugin: String,
     event: String,
     data: Value,
@@ -138,6 +145,8 @@ pub struct PluginHost {
     loaded: RwLock<Vec<Loaded>>,
     errors: RwLock<Vec<PluginInfo>>,
     pending: Mutex<Vec<Pending>>,
+    /// Wakes the flusher when an event is queued.
+    queued: Condvar,
     log: Mutex<HashMap<String, VecDeque<Value>>>,
     seq: Mutex<u64>,
     run: String,
@@ -154,6 +163,7 @@ impl Default for PluginHost {
             loaded: RwLock::default(),
             errors: RwLock::default(),
             pending: Mutex::default(),
+            queued: Condvar::new(),
             log: Mutex::default(),
             seq: Mutex::new(0),
             run,
@@ -264,7 +274,16 @@ impl PluginHost {
             std::thread::Builder::new()
                 .name("plugin-events".into())
                 .spawn(move || loop {
-                    std::thread::sleep(Duration::from_millis(150));
+                    // Woken by each queued event; the timeout lets settling
+                    // events go once their wait is over.
+                    {
+                        let pending = host.pending.lock().unwrap_or_else(|p| p.into_inner());
+                        let idle = pending.is_empty() || pending.iter().all(|p| p.settle);
+                        if idle {
+                            let wait = if pending.is_empty() { Duration::from_secs(1) } else { Duration::from_millis(50) };
+                            drop(host.queued.wait_timeout(pending, wait).unwrap_or_else(|p| p.into_inner()));
+                        }
+                    }
                     host.flush(&app);
                 })
                 .ok();
@@ -300,12 +319,19 @@ impl PluginHost {
                         continue;
                     }
                 }
+                let settle = plugin.manifest.permissions.iter().any(|p| p == "events:character");
                 self.pending.lock().unwrap_or_else(|p| p.into_inner()).push(Pending {
                     at: Instant::now(),
+                    settle,
+                    read_ms: std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .map(|d| d.as_millis() as i64)
+                        .unwrap_or_default(),
                     plugin: plugin.manifest.id.clone(),
                     event: format!("decoded:{}", d.name),
                     data,
                 });
+                self.queued.notify_one();
             }
         }
     }
@@ -320,8 +346,12 @@ impl PluginHost {
                 return;
             }
             let now = Instant::now();
-            let split = pending.iter().position(|p| now.duration_since(p.at) < SETTLE).unwrap_or(pending.len());
-            pending.drain(..split).collect()
+            // In order: a plugin's events either all settle or none do, so
+            // taking the ready ones keeps each plugin's order.
+            let (ready, waiting): (Vec<Pending>, Vec<Pending>) =
+                pending.drain(..).partition(|p| !p.settle || now.duration_since(p.at) >= SETTLE);
+            *pending = waiting;
+            ready
         };
         if ready.is_empty() {
             return;
@@ -343,6 +373,7 @@ impl PluginHost {
                 "seq": seq,
                 "event": item.event,
                 "data": item.data,
+                "at": item.read_ms,
                 "character": if allowed { who.clone() } else { None },
             });
             {
