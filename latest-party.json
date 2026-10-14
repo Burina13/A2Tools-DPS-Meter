@@ -1,6 +1,6 @@
 {
-  "version": "2.64.1",
-  "notes": "Rebrand: Tvoj Tatko DPS Meter — own identity, installs beside the genuine A2Tools meter and upstream can never upgrade over us again. Upstream v2.0.64 merged. New 'Tvoj Tatko' section in Settings (server URL, personal key, connection test). See CHANGELOG-PARTY.md.",
-  "msiUrl": "https://github.com/Burina13/A2Tools-DPS-Meter/releases/download/party-v2.64.1/Tvoj-Tatko-DPS-Meter_2.64.1_x64_en-US.msi",
-  "msiSha256": "0b7eca3dd1c509998475fa6ab2881ec7d26b80d5a73a7f928556d1bb964eecf4"
+  "version": "2.64.2",
+  "notes": "Automaticky zosynchronizovan\u00e9 (aion2-dps-release-sync, release party-v2.64.2). \u013dudsk\u00fd popis zmien: CHANGELOG-PARTY.md.",
+  "msiUrl": "https://github.com/Burina13/A2Tools-DPS-Meter/releases/download/party-v2.64.2/Tvoj-Tatko-DPS-Meter_2.64.2_x64_en-US.msi",
+  "msiSha256": "3b8a447850479db28cc4d85e06e1e608ef1c568619097034d7dbce21782d3d87"
 }
