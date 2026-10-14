@@ -169,12 +169,45 @@ pub struct UploadFailure {
     pub retryable: bool,
 }
 
-/// The upload body: the full record, the id → name map (the names the record
-/// already holds — everyone but the local player masked, exactly what History
-/// shows), the uploader's actor id, the damage anchors and — when the fight
-/// was saved by a client this new — the `ext` per-event sidecar
-/// (`party_ext::FightExt`). `ext` is `null` otherwise; the server treats it
-/// as optional, so old clients and old saves keep uploading unchanged.
+/// `record.actors`, as the wire actually wants them: `dbid` replaced by
+/// `accountRef = sha256(dbid)` (absent when `dbid == 0` — solo play, or an
+/// actor who joined before the roster packet arrived), raw `dbid` dropped.
+///
+/// Bug found 14.10.2026 (first real boss kill, `Gatekeeper Pinopi`): this
+/// step never existed. `build_body` serialized `record` as-is, so every
+/// actor went on the wire with a plain numeric `dbid` and *no* `accountRef`
+/// at all — the server's merge keys every player by `accountRef`
+/// (`zlucenie._kluc_aktera`), so with it always absent nobody was ever
+/// identified, solo or partied. It also broke the privacy promise in this
+/// module's own doc comment ("uploads carry `sha256(dbid)`, not the id
+/// itself") — the raw account id was going out unhashed.
+fn actors_for_upload(record: &FightRecord) -> Vec<serde_json::Value> {
+    record
+        .actors
+        .iter()
+        .map(|a| {
+            let mut v = serde_json::to_value(a).expect("DetailsActorSummary always serializes");
+            if let Some(obj) = v.as_object_mut() {
+                obj.remove("dbid");
+                if a.dbid != 0 {
+                    obj.insert(
+                        "accountRef".into(),
+                        serde_json::Value::String(crate::share::account_ref(a.dbid)),
+                    );
+                }
+            }
+            v
+        })
+        .collect()
+}
+
+/// The upload body: the full record (actors run through `actors_for_upload`
+/// first), the id → name map (the names the record already holds — everyone
+/// but the local player masked, exactly what History shows), the uploader's
+/// actor id, the damage anchors and — when the fight was saved by a client
+/// this new — the `ext` per-event sidecar (`party_ext::FightExt`). `ext` is
+/// `null` otherwise; the server treats it as optional, so old clients and
+/// old saves keep uploading unchanged.
 fn build_body(
     record: &FightRecord,
     uploader_actor_id: Option<i32>,
@@ -187,8 +220,15 @@ fn build_body(
         .iter()
         .map(|a| (a.actor_id.to_string(), a.nickname.clone()))
         .collect();
+    let mut record_value = serde_json::to_value(record).expect("FightRecord always serializes");
+    if let Some(obj) = record_value.as_object_mut() {
+        obj.insert(
+            "actors".into(),
+            serde_json::Value::Array(actors_for_upload(record)),
+        );
+    }
     serde_json::json!({
-        "record": record,
+        "record": record_value,
         "names": names,
         "uploaderActorId": uploader_actor_id,
         "anchors": anchors,
@@ -343,6 +383,46 @@ mod tests {
         assert!(retries_due(&d, i64::MAX).is_empty());
         assert_eq!(requeue_on_launch(&d), vec!["f2".to_string()]);
         let _ = std::fs::remove_dir_all(&d);
+    }
+
+    fn record_with_actors(id: &str, dur: i64, actors: serde_json::Value) -> FightRecord {
+        serde_json::from_value(serde_json::json!({
+            "id": id, "bossName": "b", "targetId": 1, "startTimeMs": 0,
+            "durationMs": dur, "totalDamage": 1, "jobs": [], "isTrain": false,
+            "details": {"targetId": 1, "totalTargetDamage": 1, "battleTime": dur,
+                         "skills": []},
+            "actors": actors,
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn the_wire_gets_accountref_not_dbid() {
+        // Regression for the 14.10.2026 bug (first real kill, Gatekeeper
+        // Pinopi): `build_body` used to serialize `record` untouched, so no
+        // actor ever carried `accountRef` on the wire — only a plain `dbid` —
+        // and the server's merge (keyed on `accountRef`) could identify
+        // nobody, solo or partied.
+        let r = record_with_actors(
+            "f5",
+            1_000,
+            serde_json::json!([
+                {"actorId": 1872, "nickname": "Burina", "dbid": 0},
+                {"actorId": 5, "nickname": "Ta****x", "dbid": 42},
+            ]),
+        );
+        let body = build_body(&r, Some(1872), &[], None, 123);
+        let actors = body["record"]["actors"].as_array().unwrap();
+
+        // dbid == 0 (solo play / no roster yet): no accountRef can be
+        // derived — but the raw dbid must not leak either.
+        assert!(actors[0].get("dbid").is_none(), "dbid never goes on the wire");
+        assert!(actors[0].get("accountRef").is_none(), "no dbid, no accountRef to invent");
+        assert_eq!(actors[0]["nickname"], "Burina");
+
+        // dbid != 0 (rostered): accountRef is the sha256 the server expects.
+        assert!(actors[1].get("dbid").is_none());
+        assert_eq!(actors[1]["accountRef"], serde_json::json!(crate::share::account_ref(42)));
     }
 
     #[test]
