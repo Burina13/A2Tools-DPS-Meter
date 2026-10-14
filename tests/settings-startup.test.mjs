@@ -918,7 +918,7 @@ test('showing a reused settings window refills its form without wiring controls 
     'dpsMeter.betaUi': 'false', 'dpsMeter.slimMode': 'true', 'dpsMeter.theme': 'frost',
     'dpsMeter.defaultMeterMode': 'allTargets', 'dpsMeter.allTargetsWindowMs': '60000',
     'dpsMeter.trainSelectionMode': 'highestDamage', 'dpsMeter.detailsMonitor': '1',
-    'dpsMeter.manualDevice': 'eth1', 'dpsMeter.roundDps': 'false',
+    'dpsMeter.manualDevice': 'eth1', 'dpsMeter.dpsPrecision': '1',
   };
   const wired = [];
   const control = (props = {}) => ({
@@ -966,7 +966,7 @@ test('showing a reused settings window refills its form without wiring controls 
   app.initializeSettingsDropdowns = () => order.push(`dropdowns:${app.monitorList?.length ?? 0}`);
   app.refreshMonitorList = async () => { order.push('monitors'); app.monitorList = [{}, {}]; return app.monitorList; };
   await app.syncSettingsForm();
-  assert.deepEqual(remote, [['dpsMeter.roundDps', 'false'], ['dpsMeter.meterFillOpacity', '55']]);
+  assert.deepEqual(remote, [['dpsMeter.dpsPrecision', '1'], ['dpsMeter.meterFillOpacity', '55']]);
   assert.equal(app.bossLogsCheckbox.checked, true);
   assert.equal(app.autoHideMeterCheckbox.checked, false);
   assert.equal(app.saveRawPacketsCheckbox.checked, true);
