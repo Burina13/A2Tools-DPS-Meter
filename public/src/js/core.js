@@ -8,6 +8,9 @@ const SETTING_CHOICES = {
   partyStat: { allowed: ["combatPower", "gearScore", "off"], fallback: "combatPower" },
   // A pattern over the meter's bars: a supporter's perk (applyBarTexture).
   barTexture: { allowed: ["none", "flames", "crystal", "glacier", "feathers", "wing", "storm", "nebula", "galaxy", "aura"], fallback: "none" },
+  // Decimal places on the abbreviated DPS figure (formatDpsCompact). Default
+  // 2 matches the party server's embed/web format (_fmt_cislo).
+  dpsPrecision: { allowed: ["0", "1", "2"], fallback: "2" },
 };
 // Themes whose bars differ from one another show those colours in the theme
 // menu: the class colours side by side, and the place-by-place sweeps
@@ -30,7 +33,7 @@ const pickSettingChoice = (name, value) => {
 // Settings whose change in the Settings window must redraw the meter, mapped to
 // the control that applies them. See DpsApp.applyRemoteSettingChange().
 const REMOTE_APPLIED_SETTING_CONTROLS = {
-  "dpsMeter.roundDps": ".roundDpsCheckbox",
+  "dpsMeter.dpsPrecision": ".dpsPrecisionSelect",
   "dpsMeter.showDpsSuffix": ".showDpsSuffixCheckbox",
   "dpsMeter.showTotalDps": ".showTotalDpsCheckbox",
   "dpsMeter.pinMeToTop": ".pinMeToTopCheckbox",
@@ -97,6 +100,11 @@ class DpsApp {
       showTtk: "dpsMeter.showTtk",
       showTotalDps: "dpsMeter.showTotalDps",
       roundDps: "dpsMeter.roundDps",
+      // Decimal places on the meter's abbreviated DPS figure ("0"/"1"/"2").
+      // Replaces the all-or-nothing "Round DPS" checkbox in the Settings UI
+      // (dpsMeter.roundDps stays wired for anyone's saved value, but nothing
+      // reads it for rendering any more — see formatDpsCompact).
+      dpsPrecision: "dpsMeter.dpsPrecision",
       autoDetectDevice: "dpsMeter.autoDetectDevice",
       manualDevice: "dpsMeter.manualDevice",
       showDpsSuffix: "dpsMeter.showDpsSuffix",
@@ -313,6 +321,7 @@ class DpsApp {
       this.showTtk = this.safeGetSetting(this.storageKeys.showTtk) !== "false";
       this.showTotalDps = this.safeGetSetting(this.storageKeys.showTotalDps) !== "false";
       this.roundDps = this.safeGetSetting(this.storageKeys.roundDps) !== "false";
+      this.dpsPrecision = Number(pickSettingChoice("dpsPrecision", this.safeGetSetting(this.storageKeys.dpsPrecision)));
       this.showDpsSuffix = this.safeGetSetting(this.storageKeys.showDpsSuffix) !== "false";
       const savedLimit = parseInt(this.safeGetSetting(this.storageKeys.playerLimit), 10);
       this.playerLimit = Number.isFinite(savedLimit) && savedLimit >= 1 ? savedLimit : 6;
@@ -468,6 +477,8 @@ class DpsApp {
     this.showTotalDps = this.safeGetSetting(this.storageKeys.showTotalDps) !== "false";
     // Defaults on: `!== "false"` treats "never set" as enabled.
     this.roundDps = this.safeGetSetting(this.storageKeys.roundDps) !== "false";
+    // Decimal places on the meter's DPS figure; default 2 (Settings → Advanced).
+    this.dpsPrecision = Number(pickSettingChoice("dpsPrecision", this.safeGetSetting(this.storageKeys.dpsPrecision)));
     // "/s" after the meter's DPS figures; on unless turned off (Advanced).
     this.showDpsSuffix = this.safeGetSetting(this.storageKeys.showDpsSuffix) !== "false";
     this.meterTotalBar = document.querySelector(".meterTotalBar");
@@ -2721,12 +2732,15 @@ class DpsApp {
         this.renderCurrentRows();
       });
     }
-    this.roundDpsCheckbox = document.querySelector(".roundDpsCheckbox");
-    if (this.roundDpsCheckbox) {
-      this.roundDpsCheckbox.checked = this.roundDps;
-      this.roundDpsCheckbox.addEventListener("change", (event) => {
-        this.roundDps = !!event.target?.checked;
-        this.safeSetSetting(this.storageKeys.roundDps, String(this.roundDps));
+    // Replaces the old on/off "Round DPS" checkbox with a 0-2 decimal-places
+    // choice (task 2026-10-14-1401-mcp); dpsMeter.roundDps itself is left
+    // alone so an old saved value is not lost, it just has no reader left.
+    this.dpsPrecisionSelect = document.querySelector(".dpsPrecisionSelect");
+    if (this.dpsPrecisionSelect) {
+      this.dpsPrecisionSelect.value = String(this.dpsPrecision);
+      this.dpsPrecisionSelect.addEventListener("change", (event) => {
+        this.dpsPrecision = Number(pickSettingChoice("dpsPrecision", event.target?.value));
+        this.safeSetSetting(this.storageKeys.dpsPrecision, String(this.dpsPrecision));
         this.renderCurrentRows();
       });
     }
@@ -4979,6 +4993,9 @@ class DpsApp {
   // are at the same precision. Below 500 the abbreviation would collapse to
   // "0k", so show the raw figure there instead. Turned off by the "Round DPS"
   // setting, which falls back to the exact figure.
+  //
+  // Unused since 14.10.2026 (formatDpsCompact took over row rendering) but
+  // kept, along with dpsMeter.roundDps, so an old saved setting is not lost.
   formatDpsThousands(value) {
     const n = Number(value);
     if (!Number.isFinite(n)) return "-";
@@ -4987,6 +5004,34 @@ class DpsApp {
     return thousands > 0
       ? `${this.dpsFormatter.format(thousands)}k`
       : this.dpsFormatter.format(Math.round(n));
+  }
+
+  // Abbreviated figure at a fixed decimal count ("15.94k", "1.80m") — the
+  // same shape as the party server's `_fmt_cislo` (aion2_dps.py) and the web
+  // report, so a screenshot of the meter, the Discord embed and the web all
+  // show the same digits for the same fight.
+  //
+  // `decimals` defaults to the user's chosen DPS precision (Settings →
+  // Advanced, 0-2, default 2 — dpsMeter.dpsPrecision); pass 2 explicitly for
+  // the paired total-damage figure, which always matches the embed/web.
+  //
+  // Replaces formatDpsThousands as of 14.10.2026: the first real boss kill
+  // showed "16k/s" on the meter next to "15.94k" in the Discord embed for
+  // the same fight, because the meter only ever rounded to the whole
+  // thousand with no way to see more digits.
+  formatDpsCompact(value, decimals = this.dpsPrecision) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return "-";
+    const abs = Math.abs(n);
+    const units = [
+      { value: 1e9, suffix: "b" },
+      { value: 1e6, suffix: "m" },
+      { value: 1e3, suffix: "k" },
+    ];
+    for (const unit of units) {
+      if (abs >= unit.value) return `${(n / unit.value).toFixed(decimals)}${unit.suffix}`;
+    }
+    return this.dpsFormatter.format(Math.round(n));
   }
 
   refreshDamageData({ reason = "refresh" } = {}) {
@@ -5280,13 +5325,19 @@ class DpsApp {
       };
     }
     const dps = Number(row?.dps) || 0;
-    const dpsText = `${this.formatDpsThousands(dps)}${this.meterDpsSuffix()}`;
+    const dpsText = `${this.formatDpsCompact(dps)}${this.meterDpsSuffix()}`;
+    const totalDamage = Number(row?.totalDamage) || 0;
+    // Always fixed at 2 decimals, independent of the DPS precision setting —
+    // matches the embed/web total-damage column exactly (_fmt_cislo).
+    const totalText = this.formatDpsCompact(totalDamage, 2);
     if (this.displayMode === "both") {
       // "408k (13k/s)", as a player asked: damage leads, so the bars follow it.
-      const totalDamage = Number(row?.totalDamage) || 0;
-      return { value: totalDamage, text: `${this.formatAbbreviatedNumber(totalDamage)} (${dpsText})` };
+      return { value: totalDamage, text: `${totalText} (${dpsText})` };
     }
-    return { value: dps, text: dpsText };
+    // Default readout pairs DPS with the running total ("15.94k/s · 1.80M",
+    // task 2026-10-14-1401-mcp) — the same pairing the embed and web report
+    // show, so a screenshot of either one matches the meter.
+    return { value: dps, text: `${dpsText} · ${totalText}` };
   }
 
   /** "/s" after the meter's DPS figures, or nothing when turned off in Advanced. */
@@ -5307,10 +5358,10 @@ class DpsApp {
     if (this.meterTotalDpsEl) {
       // Matches the per-row readout directly above it; a full-precision total
       // over abbreviated rows reads as two different units.
-      this.meterTotalDpsEl.textContent = `${this.formatDpsThousands(totalDps)}${this.meterDpsSuffix()}`;
+      this.meterTotalDpsEl.textContent = `${this.formatDpsCompact(totalDps)}${this.meterDpsSuffix()}`;
     }
     if (this.meterTotalDmgEl) {
-      this.meterTotalDmgEl.textContent = this.formatAbbreviatedNumber(totalDmg);
+      this.meterTotalDmgEl.textContent = this.formatDpsCompact(totalDmg, 2);
     }
   }
 

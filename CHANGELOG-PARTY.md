@@ -3,6 +3,39 @@
 Changes of the Burina13 fork on top of upstream A2Tools-DPS-Meter. Upstream's
 own changes are in its releases; this file tracks only what the fork adds.
 
+## party-v2.64.2 — 2026-10-14
+
+**Why this release exists:** the first real boss kill upload (Gatekeeper
+Pinopi, solo, 1 capture) showed up in the party server's Discord embed as
+"ostatní (1)" instead of the player's name, and the meter's overlay showed
+a rounded "16k/s" next to the embed's more precise "15.94k" for the same
+fight.
+
+- **Fix — solo/unrostered players are identified correctly**: `build_body`
+  never actually put `accountRef` (`sha256(dbid)`) on the wire — it
+  serialized the saved record as-is, so every actor carried a plain,
+  unhashed `dbid` and no `accountRef` at all. The party server merges
+  captures by `accountRef`; with it always missing, nobody was ever
+  identified, solo or partied — the bug just happened to surface first on
+  a solo fight with nobody else to merge against. `dbid` is now hashed into
+  `accountRef` per actor before upload (and the raw `dbid` no longer goes
+  on the wire at all, as this file's own privacy comment always claimed).
+  The matching server-side fix (`zlucenie._identita()`, `upload:<klucId>`
+  fallback for the uploader's own actor when a solo fight still has no
+  roster at all) ships separately in the `ops` repo.
+  Test: `party_upload::tests::the_wire_gets_accountref_not_dbid`.
+- **DPS decimal places, Settings → Advanced**: replaces the on/off "Round
+  DPS" checkbox with a 0/1/2 choice (default 2), so the meter can show
+  "15.94k/s" instead of only ever "16k" or the full unrounded figure.
+  `dpsMeter.roundDps` is left alone (nothing reads it any more, but an old
+  saved value is not lost).
+- **Total damage beside DPS**: the meter's default per-row readout now
+  pairs DPS with the running total ("15.94k/s · 1.80M"), the same pairing
+  the party server's Discord embed and web report already showed — a
+  screenshot of any of the three now matches the other two. The "both"
+  display mode (damage leading, DPS in parentheses) is unchanged for
+  anyone who picked it before.
+
 ## party-v2.64.1 — 2026-10-13
 
 **Why this release exists:** on a player's machine, upstream's v2.0.63 MSI
